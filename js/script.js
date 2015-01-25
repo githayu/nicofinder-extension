@@ -21,7 +21,7 @@ Nico.player = {
 
     // getflvAPI
     Nico.api.flGetRequest('getflv', {
-      v:  Data.video.channel ? Data.video.channel_thread : Data.video.id
+      v: Data.video.channel == '1' ? Data.video.channel_thread : Data.video.id
     })
 
     .done(function(data) {
