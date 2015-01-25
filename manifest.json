@@ -1,0 +1,35 @@
+{
+  "name": "Nicofinder",
+  "version": "1.0.3",
+  "manifest_version": 2,
+
+  "description": "Nicofinderからニコニコ動画へコメントを投稿することなどが可能になります。",
+
+  "permissions": [
+    "storage",
+    "http://*.nicofinder.net/*",
+    "http://*.nicovideo.jp/*"
+  ],
+
+  "content_scripts": [
+    {
+      "matches": ["http://*.nicofinder.net/*"],
+      "js": [
+        "js/jquery-2.1.3.min.js",
+        "js/script.js"
+      ],
+      "css": [
+        "css/style.css"
+      ],
+      "run_at": "document_start"
+    }
+  ],
+
+  "icons": {
+    "16": "img/icon16.png",
+    "48": "img/icon48.png",
+    "128": "img/icon128.png"
+  },
+
+  "homepage_url": "http://www.nicofinder.net/extension"
+}

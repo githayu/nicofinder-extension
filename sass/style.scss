@@ -1,0 +1,258 @@
+$colorPalet: #3498db,#2980b9;
+
+$commandColors: (
+  normal: (
+    'white': #ffffff,
+    'red': #ff0000,
+    'pink': #ff8080,
+    'orange': #ffc000,
+    'yellow': #ffff00,
+    'green': #00ff00,
+    'cyan': #00ffff,
+    'blue': #0000ff,
+    'purple': #c000ff,
+    'black': #000000
+  ),
+  premium: (
+    'white2': #cccc99,
+    'red2': #cc0033,
+    'pink2': #ff33cc,
+    'orange2': #ff6600,
+    'yellow2': #999900,
+    'green2': #00cc66,
+    'cyan2': #00cccc,
+    'blue2': #3399ff,
+    'purple2': #6633cc,
+    'black2': #666666
+  )
+);
+
+// コメントとコマンドの共通スタイル
+.commentInputForm {
+  padding: 8px;
+  height: 16px;
+  outline: none;
+  border: none;
+  background-color: #333;
+  color: #fff;
+}
+
+#player {
+  &.logout {
+    .alert-message {
+      color: #666;
+
+      > a {
+        color: #999;
+
+        &:hover {
+          text-decoration: underline;
+        }
+      }
+    }
+  }
+
+  &.login {
+    .alert {
+      display: none;
+    }
+
+    fieldset {
+      padding: 0;
+      border: none;
+      margin: 0;
+    }
+
+    #video-comment {
+      display: block;
+      position: relative;
+
+      // コマンド入力フォーム
+      input.video-command-input {
+        @extend .commentInputForm;
+        width: 150px;
+        float: left;
+      }
+
+      // コメント入力フォーム
+      input.video-comment-input {
+        @extend .commentInputForm;
+        width: 400px;
+        float: left;
+      }
+
+      // コメント送信ボタン
+      input.video-comment-send {
+        outline: none;
+        display: block;
+        border: none;
+        width: 98px;
+        padding: 6px;
+        background-color: #222;
+        color: #fff;
+        transition: background 100ms ease 0s;
+
+        &:hover {
+          background-color: #27ae60;
+        }
+      }
+    }
+
+    .video-command-panel {
+      width: 471px;
+      position: absolute;
+      top: auto;
+      top: 100%;
+      left: 0;
+      background-color: rgba(0, 0, 0, .6);
+      z-index: 10;
+      border-radius: 0 0 5px 5px;
+      display: none;
+      color: #fff;
+
+      &.show {
+        display: block;
+      }
+
+      > div + div {
+        border-left: 1px #333 solid;
+      }
+
+      > .command-panel-left {
+        padding: 8px 10px;
+        float: left;
+
+        > fieldset {
+          &:not(:first-child) {
+            margin: 5px 0 0;
+          }
+
+          > label {
+            width: 50px;
+            height: 25px;
+            border-radius: 25px;
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+            vertical-align: middle;
+
+            + label {
+              margin-left: 5px;
+            }
+
+            > input {
+              display: none;
+
+              &:not(:checked) + div:hover,
+              &:checked + div {
+                background-color: #3498db;
+              }
+
+              &:not(:checked) + div:active {
+                background-color: #2980b9;
+              }
+            }
+
+            > div {
+              width: 100%;
+              height: 100%;
+              line-height: 25px;
+              position: absolute;
+              top: 0;
+              left: 0;
+              cursor: pointer;
+              background-color: rgba(255, 255, 255, .3);
+              text-align: center;
+              color: #fff;
+            }
+          }
+        }
+      }
+
+      > .command-panel-right {
+        padding: 10px;
+        margin-left: 180px;
+        min-height: 51px;
+
+        > .command-color {
+          + fieldset {
+            margin-top: 5px;
+          }
+
+          > label {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            overflow: hidden;
+            margin-right: 5px;
+            position: relative;
+            vertical-align: top;
+
+            > input {
+              display: none;
+            }
+
+            > div {
+              width: 18px;
+              height: 18px;
+              position: absolute;
+              top: 0;
+              border-radius: 18px;
+              cursor: pointer;
+            }
+
+            @each $key, $val in $commandColors {
+              @each $color, $hex in map-get($commandColors, $key) {
+                &.#{$color} > div {
+                  width: 16px;
+                  height: 16px;
+                  background-color: $hex;
+                  border: 1px #000 solid;
+                }
+
+                &.#{$color} > input:checked + div,
+                &.#{$color} > input:not(:checked) + div:hover {
+                  background-color: $hex;
+                  border: 2px #fff solid;
+                }
+              }
+            }
+          }
+
+          > .hex {
+            width: 18px;
+            height: 18px;
+            display: inline-block;
+            padding: 0;
+            border: 1px #000 solid;
+            border-radius: 18px;
+            overflow: hidden;
+            outline: none;
+            cursor: pointer;
+
+            &:hover,
+            &.active {
+              height: 16px;
+              width: 16px;
+              border:  2px #fff solid;
+            }
+
+            &::-webkit-color-swatch-wrapper {
+              padding: 0;
+            }
+
+            &::-webkit-color-swatch {
+              border: none;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  &.wide {
+    #video-comment input.video-comment-input {
+      width: 700px;
+    }
+  }
+}
