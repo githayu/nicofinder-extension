@@ -1,0 +1,31 @@
+@import "./_common";
+
+.options {
+  padding: 20px;
+  list-style: none;
+
+  > li {
+    + li {
+      padding-top: 20px;
+    }
+
+    > h2 {
+      font-size: 1.5rem;
+      font-weight: bold;
+      margin-bottom: 15px;
+    }
+
+    > label {
+      display: block;
+      margin-left: 10px;
+
+      + label {
+        margin-top: 10px;
+      }
+
+      > input[type=checkbox] {
+        margin-right: 5px;
+      }
+    }
+  }
+}

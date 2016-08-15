@@ -1,161 +1,211 @@
-var BG = {
-  state: {},
+import chrome from './initialize';
+import { validateURL } from './utils';
+import { define, defaultStorage } from './config';
 
-  storage: {
-    local: {},
-    cache: {}
-  },
+class Background {
+  constructor() {
 
-  init: function () {
+    // I/O
+    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+      switch (request.type) {
+        case 'getBackgroundData': {
+          let response = request.data in this ? this[request.data] : null;
+          sendResponse(response);
+          break;
+        }
 
-    chrome.contextMenus.create({
-      title: '動画IDをコピー',
-      type: 'normal',
-      contexts: ['link'],
-      documentUrlPatterns: ['http://*.nicovideo.jp/*'],
-      onclick: function (info) {
+        case 'fetchVideoAPI': {
+          this.xhr({
+            url: define.nicoapi.videoInfo,
+            method: 'post',
+            type: 'json',
+            qs: {
+              v: request.data,
+              __format: 'json'
+            }
+          }).then(res => {
+            this.videoInfo = res.nicovideo_video_response;
+            sendResponse(res.nicovideo_video_response);
+          });
 
-        var id =  info.linkUrl.match(Nicofinder.Define.Regexp.Views)[3],
-            range = document.createRange(),
-            elem = document.createElement('p');
+          return true;
+          break;
+        }
 
-        elem.setAttribute('id', 'clip-board');
-        elem.innerText = id;
-
-        document.body.appendChild(elem)
-
-        range.selectNode(elem);
-        window.getSelection().addRange(range);
-
-        document.execCommand('copy');
-
-        window.getSelection().removeAllRanges();
-        document.body.removeChild(elem);
-      }
-    });
-
-    // Chrome Local Storage のキャッシュ
-    chrome.storage.local.get(['redirect'], function(res) {
-      BG.storage.local = res;
-    });
-
-
-    // Chrome Storage の変更イベント
-    chrome.storage.onChanged.addListener(function (changes, areaName) {
-      for(var key in changes) {
-        BG.storage[areaName][key] = changes[key].newValue;
-      }
-    });
-
-
-    // リダイレクト
-    chrome.webRequest.onBeforeRequest.addListener(function (details) {
-      var temp,
-          vars = Nicofinder.fn.url_vars_decode((function() {
-            var url = details.url.split('?');
-            return '?'+ url[url.length - 1];
-          })());
-
-      if (vars.nicoview == 1) return false;
-
-      if(temp = details.url.match(Nicofinder.Define.Regexp.Views)) {
-        BG.state.type = temp[2];
-        BG.state.id = temp[3];
-
-        if(BG.storage.local.redirect) {
-          return {
-            redirectUrl: [Nicofinder.Define.Host.URL, BG.state.type, BG.state.id].join('/')
-          }
+        case 'sendBackgroundDebugger': {
+          console.log(request.data);
+          break;
         }
       }
+    });
 
+
+    // Storage
+    chrome.storage.local.get(defaultStorage.extension.local, storage =>
+      Object.entries(storage).forEach(([name, value]) => {
+        this[name] = value
+      })
+    );
+
+
+    // Storage change
+    chrome.storage.onChanged.addListener((changes, namespace) => {
+      for (let name in changes) {
+        this[name] = changes[name].newValue;
+      }
+    });
+
+
+    // Redirect
+    chrome.webRequest.onBeforeRequest.addListener(details => {
+      if (this.redirect === false) return;
+
+      // Redirect cancel
+      var url = new URL(details.url);
+
+      if ('searchParams' in url) {
+        if (url.searchParams.has('nicoview') && url.searchParams.get('nicoview') == 1) return;
+      } else if (url.search.length) {
+        if (url.search.replace('?', '').split('&').includes('nicoview=1')) return;
+      }
+
+      var match,
+          redirectUrl;
+
+      if (match = validateURL(details.url, { domain: 'nicovideo', name: 'content' })) {
+        redirectUrl = Object.values({
+          domain: define.nicofinder.host,
+          content: match[2],
+          id: match[3]
+        }).join('/');
+      }
+
+      if (redirectUrl && (this.redirectList.length === 0 || this.redirectList.includes(match[2]))) {
+        return { redirectUrl }
+      }
     }, {
       urls: ['http://*.nicovideo.jp/*'],
       types: ['main_frame']
     }, ['blocking']);
 
 
-    // JS
-    chrome.webRequest.onBeforeRequest.addListener(function (details) {
-      // if (/^https?:\/\/(www|dev|staging)\.nicofinder\.net\/js\/player\/\d+\/player\.js/.test(details.url)) {
-      //   return {
-      //     redirectUrl: details.url.replace(/player.js.*$/, 'extension.js')
-      //   }
-      // }
+    // Nicofinder で対応するページを開く
+    chrome.contextMenus.create({
+      title: 'Nicofinderで開く',
+      type: 'normal',
+      contexts: ['link'],
+      targetUrlPatterns: ['*://*.nicovideo.jp/*'],
+      onclick: info => {
+        var match = validateURL(info.linkUrl, {
+          domain: 'nicovideo',
+          name: 'content'
+        });
 
-      if (details.url.startsWith('http://res.nimg.jp/js/watch/player/player.js')) {
-        return {
-          cancel: true
-        }
-      }
-    }, {
-      urls: [
-        '*://*.nicofinder.net/*',
-        'http://*.nimg.jp/*'
-      ],
-      types: ['script']
-    }, ['blocking']);
-
-
-    // Page Action の表示
-    chrome.tabs.onUpdated.addListener(function (tabId, changeinfo, tab) {
-      if(Nicofinder.Define.Regexp.Niconico.test(tab.url) || Nicofinder.Define.Regexp.Nicofinder.test(tab.url)) {
-
-        /* なんかぼやけるのでやーめた
-
-        if(BG.storage.local.redirect) {
-          chrome.pageAction.setIcon({
-            tabId: tabId,
-            path: 'img/page-action-icon-active.png'
+        if (Array.isArray(match)) {
+          chrome.tabs.create({
+            url: [
+              define.nicofinder.host,
+              match[2],
+              match[3]
+            ].join('/')
           });
-        }*/
-
-        chrome.pageAction.show(tabId);
+        }
       }
     });
 
 
-    // Message I/O
-    chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
-      var response = {};
+    // Nicofinder コメント解析ページを開く
+    chrome.contextMenus.create({
+      title: 'コメント解析',
+      type: 'normal',
+      contexts: ['link'],
+      targetUrlPatterns: ['http://www.nicovideo.jp/watch/*'],
+      onclick: info => {
+        var match = validateURL(info.linkUrl, {
+          domain: 'nicovideo',
+          name: 'watch'
+        });
 
-      for(var key in request) {
-        switch (key) {
-          case 'get':
-
-            for(var i = 0; i < request.get.length; i++) {
-              if(0 <= request.get.indexOf('type')) response.type = BG.state.type;
-              if(0 <= request.get.indexOf('id')) response.id = BG.state.id;
-              if(0 <= request.get.indexOf('lastinfo')) {
-                if(typeof BG.storage.cache.lastinfo !== undefined) response.lastinfo = BG.storage.cache.lastinfo;
-                else response.lastinfo = false;
-              }
-            }
-
-            break;
-
-          case 'set':
-
-            for(var item = 0; item < request.set.length; item++) {
-              switch (request.set[item][0]) {
-                case 'lastinfo':
-
-                  BG.storage.cache.lastinfo = request.set[item][1];
-                  response = true;
-
-                  break;
-              }
-            }
-
-            break;
+        if (Array.isArray(match)) {
+          chrome.tabs.create({
+            url: [
+              define.nicofinder.host,
+              'comment',
+              match[2]
+            ].join('/')
+          });
         }
       }
-
-      sendResponse(response);
     });
   }
-};
 
-$(function() {
-  BG.init();
-});
+  xhr(request) {
+    return new Promise((resolve, reject) => {
+      var xhr = new XMLHttpRequest(),
+          url = new URL(request.url);
+
+      request = Object.assign({}, {
+        method: 'get',
+        formData: new FormData()
+      }, request);
+
+      if ('qs' in request) {
+        switch (request.method) {
+          case 'get': {
+            Object.entries(request.qs).forEach(([name, value]) => url.searchParams.append(name, value));
+            break;
+          }
+
+          case 'post': {
+            Object.entries(request.qs).forEach(([name, value]) => request.formData.append(name, value));
+            break;
+          }
+        }
+      }
+
+      xhr.open(request.method, url, true);
+
+      if (request.timeout) xhr.timeout = request.timeout;
+
+      xhr.onload = () => {
+        if (xhr.status === 200 || xhr.status === 304) {
+          switch (request.type) {
+            case 'xml':
+              resolve(xhr.responseXML);
+              break;
+
+            case 'text':
+              resolve(xhr.responseText);
+              break;
+
+            case 'json':
+              resolve(JSON.parse(xhr.responseText));
+              break;
+          }
+        } else {
+          reject({
+            status: false,
+            code: xhr.status
+          });
+        }
+
+        xhr.abort();
+      }
+
+      xhr.onerror = e => reject({
+        status: false,
+        code: 'native',
+        detail: e
+      });
+
+      xhr.ontimeout = () => reject({
+        status: false,
+        code: 'timeout'
+      });
+
+      xhr.send(request.formData);
+    });
+  }
+}
+
+var background = new Background();

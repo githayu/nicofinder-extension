@@ -1,0 +1,21 @@
+@import 'compass/reset';
+
+html {
+  font-size: 62.5%;
+}
+
+body {
+  min-width: 250px;
+  font-family: 'Avenir Next', 'Hiragino Kaku Gothic Pro', Meiryo, sans-serif;
+  font-size: 1.4rem;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+@font-face {
+  font-family: 'material-icon';
+  src: url('/fonts/material-icon.woff2?v=2.2.0') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+}

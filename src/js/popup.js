@@ -1,186 +1,170 @@
-var Popup = {
-  state: {},
+import chrome from './initialize';
+import { regExp } from './config';
+import { validateURL, getActiveTabs } from './utils';
 
-  init: function() {
+class Popup {
+  constructor() {
+    this.initialize();
+  }
 
-    // アクティブタブを取得
-    chrome.tabs.query({
-      active: true
-    }, function(tabs) {
+  async initialize() {
+    var tabs = await getActiveTabs(),
+        match;
 
-      var temp;
+    if (match = validateURL(tabs[0].url, { domain: 'nicovideo', name: 'watch' })) {
+      let videoId = match[2];
 
-      for (var i = 0; i < tabs.length; i++) {
+      this.type = 'watch';
+      this.videoInfo = await this.backgroundIO('getBackgroundData', 'videoInfo', videoId);
 
-        if(temp = tabs[i].url.match(Nicofinder.Define.Regexp.Views)) {
-          chrome.runtime.sendMessage({
-            get: ['type', 'id']
-          }, function (res) {
-            Popup.state.type = temp[2];
-            Popup.state.id = temp[3];
-
-            if(temp[2] === res.type && temp[3] === res.id) {
-              // 同じ
-            } else {
-              // 違う
-            }
-
-            Popup.view();
-          });
-
-          return;
-        }
-
-        Popup.view();
+      if (this.videoInfo === null) {
+        this.videoInfo = await this.backgroundIO('fetchVideoAPI', videoId);
       }
 
-    });
+      this.thumbnailRender();
+      this.appendAction([
+        {
+          type: 'link',
+          label: 'Nicofinderで視聴',
+          link: `http://www.nicofinder.net/watch/${this.videoInfo.video.id}`,
+          class: ['watch'],
+          tab: 'current'
+        }, {
+          type: 'link',
+          label: 'コメント解析',
+          link: `http://www.nicofinder.net/comment/${this.videoInfo.video.id}`,
+          class: ['comment'],
+          tab: 'create'
+        }
+      ]);
+    } else if (match = validateURL(tabs[0].url, { domain: 'nicovideo', name: 'mylist' })) {
+      let mylistId = match[2];
 
-    // リダイレクト設定の判定
-    chrome.storage.local.get({
-      redirect: false
-    }, function(res) {
+      this.appendAction([
+        {
+          type: 'link',
+          label: 'Nicofinderで開く',
+          link: `http://www.nicofinder.net/mylist/${mylistId}`,
+          class: ['mylist'],
+          tab: 'current'
+        }
+      ]);
+    } else {
+      document.querySelector('.redirect-toggler').classList.add('nonNon');
+    }
 
-      if(res.redirect) $('#setting').find('.redirect').find('.toggle').addClass('on no-anime');
+    // リダイレクト状態の反映
+    chrome.storage.local.get('redirect', storage => {
+      var toggler = document.querySelector('.redirect-toggle-switch');
 
+      if (storage.redirect === true) {
+        toggler.classList.add('on');
+      } else {
+        toggler.classList.add('off');
+      }
     });
 
     // リダイレクト設定の変更
-    $('#setting').find('.redirect').find('.toggle').click(function() {
-      var self = this;
+    document.querySelector('.redirect-toggle-switch').addEventListener('click', e => {
+      var toggler = e.target;
 
-      $(this).removeClass('no-anime');
-
-      if($(this).hasClass('on')) {
-
+      if (toggler.classList.contains('on')) {
         chrome.storage.local.set({
           redirect: false
-        }, function() {
-          $(self).removeClass('on');
+        }, () => {
+          toggler.classList.remove('on');
+          toggler.classList.add('off');
         });
-
       } else {
-
         chrome.storage.local.set({
           redirect: true
-        }, function() {
-          $(self).addClass('on');
+        }, () => {
+          toggler.classList.remove('off');
+          toggler.classList.add('on');
         });
       }
     });
+  }
 
-    $('#action').on('click', '.trigger', function() {
-      Popup.redirector([Nicofinder.Define.Host.URL, this.dataset.action, Popup.state.id].join('/'), this.dataset.tab);
-    });
+  backgroundIO(type, data, options) {
+    return new Promise(resolve => chrome.runtime.sendMessage({ type, data }, res => {
+      switch (type) {
+        case 'getBackgroundData': {
+          if (res === null) return resolve(null);
 
-    $('#container').find('.nicofinder-link').click(function() {
-      Popup.redirector(Nicofinder.Define.Host.URL);
-    });
-  },
-
-  view: function() {
-
-    var addList = function(actionName, listName, tab) {
-        var tab = tab || 'current';
-
-        $('#action')
-          .append($('<li>')
-            .addClass([actionName, 'trigger'].join(' '))
-            .text(listName)
-            .attr({
-              'data-action': actionName,
-              'data-tab': tab
-            }));
-    }
-
-    switch (this.state.type) {
-      case 'watch':
-
-        var d = new $.Deferred,
-            thumbinfo;
-
-        function checkImage(src) {
-          var img_deferred = new $.Deferred(),
-              thumbnail = new Image();
-              thumbnail.src = src;
-
-          $(thumbnail)
-          .on('error', function() {
-            img_deferred.resolve(false);
-          })
-
-          .on('load', function() {
-            img_deferred.resolve(true);
-          });
-
-          return img_deferred.promise();
-        };
-
-        function addImage(src, type) {
-          $('#thumbnail').css({
-            'background-image': 'url('+ src +')'
-          }).addClass(type).show();
-        };
-
-
-        // getthumbinfo
-        Nicofinder.request.getthumbinfo(Popup.state.id)
-
-        // ステータスチェック
-        .then(function(data) {
-
-          thumbinfo = data;
-
-          if ($(thumbinfo).attr('status') == 'ok') {
-            return d.resolve();
-          } else {
-            addImage('http://res.nimg.jp/img/common/video_deleted_ja-jp.jpg', 'deleted');
-
-            return d.reject();
+          if (toString.call(res).includes('Object')) {
+            if (res.thread.id !== options && res.video.id !== options) return resolve(null);
           }
-        })
 
-        // LargeSizeの画像が存在するかチェック
-        .then(function() {
-          return checkImage($(thumbinfo).find('thumbnail_url').text() +'.L');
-        })
+          break;
+        }
+      }
 
-        // サムネイルの表示
-        .then(function(res) {
-          if(res) {
-            addImage($(thumbinfo).find('thumbnail_url').text() +'.L');
-          } else {
-            addImage($(thumbinfo).find('thumbnail_url').text(), 'small');
+      return resolve(res);
+    }));
+  }
+
+  appendAction(req) {
+    var actions = document.querySelector('.actions');
+
+    for (let item of req) {
+      let liTag = document.createElement('li'),
+          liClass = Array.isArray(item.class) ? item.class.concat([item.type]) : [item.type],
+          aTag = document.createElement('a');
+
+      liTag.classList.add(...liClass);
+
+      aTag.href = item.link;
+      aTag.innerText = item.label;
+
+      aTag.addEventListener('click', e => {
+        e.preventDefault();
+
+        switch (item.tab) {
+          case 'create': {
+            chrome.tabs.create({
+              url: aTag.href
+            }, () => window.close());
+            break;
           }
-        });
 
-        addList('watch', 'Nicofinderで視聴');
-        addList('comment', 'コメントを解析', 'new');
-        break;
+          default: {
+            getActiveTabs().then(tabs => {
+              chrome.tabs.update(tabs[0].id, {
+                url: aTag.href
+              }, () => window.close());
+            });
+          }
+        }
+      });
 
-      case 'mylist':
-        addList('mylist', 'Nicofinderで閲覧');
-        break;
+      liTag.appendChild(aTag);
+      actions.appendChild(liTag);
     }
-  },
+  }
 
-  redirector: function(url, tab) {
-    switch (tab) {
-      case 'new':
-        chrome.tabs.create({
-          url: url
-        });
-        break;
+  thumbnailRender() {
+    switch (this.type) {
+      case 'watch': {
+        let thumbnail = document.querySelector('.thumbnail'),
+            img = new Image();
 
-      default:
-        chrome.tabs.update(null, {
-          url: url
+        img.addEventListener('load', () => {
+          thumbnail.style.backgroundImage = `url(${img.src})`;
+          thumbnail.style.display = 'block';
         });
 
-        window.close();
+        if (this.videoInfo.video.options['@large_thumbnail'] == 1) {
+          img.src = `${this.videoInfo.video.thumbnail_url}.L`;
+        } else {
+          img.src = this.videoInfo.video.thumbnail_url;
+          thumbnail.classList.add('small');
+        }
+
         break;
+      }
     }
   }
 }
 
-Popup.init();
+var popup = new Popup();
