@@ -1,4 +1,4 @@
-import { isDecimalNumber } from '../../js/utils';
+import { isDecimalNumber, xhr, xmlChildrenParser } from '../../js/utils';
 
 export default class NicoAPI {
   constructor(video) {
@@ -29,74 +29,6 @@ export default class NicoAPI {
     });
   }
 
-  xhr(request) {
-    return new Promise((resolve, reject) => {
-      var xhr = new XMLHttpRequest(),
-          url = new URL(request.url);
-
-      request = Object.assign({}, {
-        method: 'GET',
-        sendQuery: null
-      }, request);
-
-      if ('qs' in request) {
-        switch (request.method) {
-          case 'GET': {
-            Object.keys(request.qs).forEach(key => url.searchParams.append(key, request.qs[key]));
-            break;
-          }
-
-          case 'POST': {
-            request.sendQuery = Object.entries(request.qs).map(([key, val]) => [key, val].join('='));
-            break;
-          }
-        }
-      }
-
-      xhr.open(request.method, url, true);
-
-      if (request.timeout) xhr.timeout = request.timeout;
-
-      xhr.onload = e => {
-        if (xhr.status === 200 || xhr.status === 304) {
-          switch (request.type) {
-            case 'xml':
-              resolve(xhr.responseXML);
-              break;
-
-            case 'text':
-              resolve(xhr.responseText);
-              break;
-
-            case 'json':
-              resolve(JSON.parse(xhr.responseText));
-              break;
-          }
-        } else {
-          reject({
-            status: false,
-            code: xhr.status
-          });
-        }
-
-        xhr.abort();
-      }
-
-      xhr.onerror = e => reject({
-        status: false,
-        code: 'native',
-        detail: e
-      });
-
-      xhr.ontimeout = e => reject({
-        status: false,
-        code: 'timeout'
-      });
-
-      xhr.send(request.sendQuery);
-    });
-  }
-
   async getflv() {
     var data = await this.fetch({
       url: 'http://flapi.nicovideo.jp/api/getflv',
@@ -123,7 +55,7 @@ export default class NicoAPI {
   async watch() {
     var id = this.video.id.startsWith('so') ? this.video.mainThreadId : this.video.id;
 
-    return await this.xhr({
+    return await xhr({
       url: `http://www.nicovideo.jp/watch/${id}`,
       qs: {
         watch_harmful: 1,
@@ -134,49 +66,13 @@ export default class NicoAPI {
   }
 
   async storyboard(url) {
-    return await this.xhr({
+    return await xhr({
       url,
       type: 'xml',
       qs: {
         sb: 1
       }
-    }).then(xml => {
-      var xmlChildrenParser = collections => {
-        var currentData = {};
-
-        for (let children of collections) {
-          let attributes = {};
-
-          // 属性
-          if (children.attributes.length) {
-            for (let attribute of children.attributes) {
-              let value = isDecimalNumber(attribute.textContent) ? Number(attribute.textContent) : attribute.textContent;
-              attributes[attribute.name] = value;
-            }
-          }
-
-          // 子要素
-          if (children.children.length) {
-            let deepData = Object.assign({}, xmlChildrenParser(children.children), attributes);
-
-            // 複数の同名タグが存在
-            if (Array.from(collections).filter(element => element.tagName === children.tagName).length > 1) {
-              if (children.tagName in currentData === false) currentData[children.tagName] = [];
-              currentData[children.tagName].push(deepData);
-            } else {
-              currentData[children.tagName] = Object.assign({}, currentData[children.tagName], deepData);
-            }
-          } else {
-            let value = isDecimalNumber(children.textContent) ? Number(children.textContent) : children.textContent;
-            currentData[children.tagName] = value;
-          }
-        }
-
-        return currentData;
-      }
-
-      return xmlChildrenParser(xml.children).smile;
-    });
+    }).then(xml => xmlChildrenParser(xml.children).smile);
   }
 
   async _videos() {

@@ -33,7 +33,7 @@ export default {
     new webpack.optimize.OccurenceOrderPlugin(),
     new webpack.DefinePlugin({ 'process.env.NODE_ENV': `"${process.env.NODE_ENV || (DEBUG ? 'development' : 'production')}"` }),
     ...(DEBUG ? [] : [
-      new webpack.optimize.DefinePlugin(),
+      new webpack.optimize.DedupePlugin(),
       new webpack.optimize.UglifyJsPlugin({ compress: { screw_ie8: true, warnings: VERBOSE } }),
       new webpack.optimize.AggressiveMergingPlugin()
     ])

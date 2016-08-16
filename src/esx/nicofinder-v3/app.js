@@ -1,4 +1,4 @@
-import NicoAPI from './nicoAPI';
+import NicoAPI from './nicoApi';
 
 window.addEventListener('fetchRequestVideoInfo', async e => {
   var nicoAPI = new NicoAPI(e.detail),

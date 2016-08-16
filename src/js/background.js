@@ -1,5 +1,5 @@
 import chrome from './initialize';
-import { validateURL } from './utils';
+import { validateURL, xhr } from './utils';
 import { define, defaultStorage } from './config';
 
 class Background {
@@ -15,7 +15,7 @@ class Background {
         }
 
         case 'fetchVideoAPI': {
-          this.xhr({
+          xhr({
             url: define.nicoapi.videoInfo,
             method: 'post',
             type: 'json',
@@ -136,74 +136,6 @@ class Background {
           });
         }
       }
-    });
-  }
-
-  xhr(request) {
-    return new Promise((resolve, reject) => {
-      var xhr = new XMLHttpRequest(),
-          url = new URL(request.url);
-
-      request = Object.assign({}, {
-        method: 'get',
-        formData: new FormData()
-      }, request);
-
-      if ('qs' in request) {
-        switch (request.method) {
-          case 'get': {
-            Object.entries(request.qs).forEach(([name, value]) => url.searchParams.append(name, value));
-            break;
-          }
-
-          case 'post': {
-            Object.entries(request.qs).forEach(([name, value]) => request.formData.append(name, value));
-            break;
-          }
-        }
-      }
-
-      xhr.open(request.method, url, true);
-
-      if (request.timeout) xhr.timeout = request.timeout;
-
-      xhr.onload = () => {
-        if (xhr.status === 200 || xhr.status === 304) {
-          switch (request.type) {
-            case 'xml':
-              resolve(xhr.responseXML);
-              break;
-
-            case 'text':
-              resolve(xhr.responseText);
-              break;
-
-            case 'json':
-              resolve(JSON.parse(xhr.responseText));
-              break;
-          }
-        } else {
-          reject({
-            status: false,
-            code: xhr.status
-          });
-        }
-
-        xhr.abort();
-      }
-
-      xhr.onerror = e => reject({
-        status: false,
-        code: 'native',
-        detail: e
-      });
-
-      xhr.ontimeout = () => reject({
-        status: false,
-        code: 'timeout'
-      });
-
-      xhr.send(request.formData);
     });
   }
 }

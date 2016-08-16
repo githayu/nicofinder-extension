@@ -3,6 +3,10 @@ export const regExp = {
     watch: /^https?:\/\/(www|sp).nicovideo.jp\/watch\/(\d{10}|(sm|so|nm)\d+)/,
     mylist: /^https?:\/\/(www|sp).nicovideo.jp\/mylist\/(\d+)/,
     content: /^https?:\/\/(www|sp).nicovideo.jp\/(watch|mylist)\/(\d+|(sm|so|nm)\d+)/
+  },
+  nicofinder: {
+    host: /^.*\.nicofinder\.net$/,
+    v2: /^\/(watch|player)\/(\d{10}|[a-z]{2}\d+)$/
   }
 };
 

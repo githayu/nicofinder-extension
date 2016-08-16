@@ -1,7 +1,258 @@
 import chrome from '../initialize';
-import { defaultStorage } from '../config';
+import { defaultStorage, regExp } from '../config';
+import { isDecimalNumber, xhr, xmlChildrenParser } from '../utils';
 
-// 古いやつ
+class Nicofinder {
+  constructor() {
+    document.addEventListener('DOMContentLoaded', ::this.domContentLoaded);
+  }
+
+  domContentLoaded() {
+    if (!regExp.nicofinder.host.test(location.hostname) ||
+        !regExp.nicofinder.v2.test(window.location.pathname)) {
+      return false;
+    }
+
+    // データの読み込み
+    this.videoInfo = JSON.parse(document.querySelector('.watch-api').innerHTML);
+    this.watchInfo = JSON.parse(document.querySelector('.watch-data').innerHTML);
+    if (this.videoInfo === null || this.watchInfo === null) return false;
+
+    // Page Ver.2 以外サポートしない
+    if (this.watchInfo.version != 2) {
+      return false;
+    } else {
+      this.initialize();
+    }
+  }
+
+  initialize() {
+    this.player = document.getElementById('player');
+    this.player.addEventListener('reAuthRequest', ::this.reAuthRequest);
+    this.player.addEventListener('videoWatchRequest', ::this.videoWatchRequest);
+    this.player.addEventListener('optionchange', storage.update('player_setting_v2'));
+    this.player.addEventListener('navigate', e => this.stateChange('videoInfo', e.detail));
+    this.player.addEventListener('initHTML5Video', ::this.initHTML5Video);
+  }
+
+  dispatchPlayerEvent(eventName, detail = null) {
+    this.player.dispatchEvent(new CustomEvent(eventName, { detail }));
+  }
+
+  async reAuthRequest() {
+    await NicoAPI.getNicoHistory(this.getMainVideoId(), {
+      watch_harmful: 1,
+      eco: this.isForceEconomy()
+    }).catch(e => {
+      console.warn(e);
+      this.dispatchPlayerEvent('reAuthError', e);
+    });
+
+    this.dispatchPlayerEvent('reAuthResponse');
+  }
+
+  async videoWatchRequest() {
+    var forceEconomy = this.isForceEconomy(),
+        mainVideoId = this.getMainVideoId();
+
+    this.getflv = await NicoAPI.getflv({
+      v: mainVideoId,
+      eco: forceEconomy
+    });
+
+    if (this.getflv.closed === undefined) {
+      this.setLoginClass();
+      Nico.player.command.init();
+
+      // nicohistory
+      await NicoAPI.getNicoHistory(mainVideoId, {
+        watch_harmful: 1,
+        eco: forceEconomy
+      }).then(() => {
+        this.dispatchPlayerEvent('extensionFetchResponse', {
+          type: 'getflv',
+          data: this.getflv
+        });
+      }).catch(e => {
+        console.warn(e);
+        this.dispatchPlayerEvent('extensionFetchResponse', {
+          type: 'error',
+          data: 'nicohistory'
+        });
+      });
+
+      // storyboard
+      if (this.getflv.is_premium === 1) {
+        NicoAPI.getStoryboard(this.getflv.url).then(storyboard => {
+          this.dispatchPlayerEvent('extensionFetchResponse', {
+            type: 'storyboard',
+            data: storyboard
+          });
+        }).catch(e => {
+          console.warn(e);
+          this.dispatchPlayerEvent('extensionFetchResponse', {
+            type: 'error',
+            data: 'storyboard'
+          });
+        });
+      }
+    }
+  }
+
+  setLoginClass() {
+    if (this.getflv.closed === 1) {
+      this.player.classList.remove('login');
+      this.player.classList.add('logout');
+    } else {
+      this.player.classList.remove('logout');
+      this.player.classList.add('login');
+    }
+  }
+
+  stateChange(name, value) {
+    this[name] = value;
+
+    switch (name) {
+      case 'videoInfo':
+        this.videoWatchRequest();
+        break;
+    }
+  }
+
+  isForceEconomy() {
+    return this.videoInfo.video.movie_type === 'flv' ? 1 : 0;
+  }
+
+  getMainVideoId() {
+    return this.videoInfo.video.channel ? this.videoInfo.video.channel_thread : this.videoInfo.video.id;
+  }
+
+  initHTML5Video() {
+    this.video = this.player.querySelector('#html5-video');
+
+    // 匿名投稿オプションを表示
+    $(this.player).find('#comment_anonymity_post')
+      .prop('checked', storage.player_setting_v2.comment_anonymity_post)
+      .parent().removeClass('hide');
+
+    // コマンド変更イベントの登録
+    $(this.player).find('.player-command-panel input').on('change', e => {
+      var command = Nico.player.command.change(e.target.value);
+      Nico.player.command.output(command);
+    });
+
+    // コマンド入力イベントの登録
+    $(this.player).find('.player-command-input').on('keyup blur', e => {
+      if([8, 32, 46, 37, 38, 39, 40].indexOf(e.which) >= 0) return;
+
+      var command = Nico.player.command.normalization(e.target.value);
+      Nico.player.command.output(command);
+    });
+
+    // コマンドフォーカスイベント
+    $(this.player).find('.player-command-input').on('focus', () => {
+      $('.player-command-panel').addClass('show');
+
+      $(document).click(e2 => {
+        if (!$.contains($('#player').get(0), e2.target)) {
+          $('.player-command-panel').removeClass('show');
+        }
+      });
+    });
+
+    // コメント投稿イベント
+    $(this.player).find('.player-comment-send').on('click', () => {
+      if(this.video === null) return;
+
+      Nico.player.comment.check(
+        $('.player-comment-input').val(),
+        $('.player-command-input').val(),
+        this.video.currentTime
+      );
+    });
+  }
+};
+
+class NicoAPI {
+  static async getflv(qs) {
+    var data = await xhr({
+      method: 'post',
+      url: 'http://flapi.nicovideo.jp/api/getflv',
+      type: 'text',
+      qs
+    });
+
+    var result = {};
+
+    data.split('&').forEach(query => {
+      var [key, value] = query.split('=');
+      result[key] = isDecimalNumber(value) ? Number(value) : decodeURIComponent(value);
+    });
+
+    return result;
+  }
+
+  static async getNicoHistory(id, qs) {
+    return await xhr({
+      method: 'post',
+      url: `http://www.nicovideo.jp/watch/${id}`,
+      type: 'text',
+      qs
+    });
+  }
+
+  static async getStoryboard(url) {
+    return await xhr({
+      url,
+      type: 'xml',
+      qs: {
+        sb: 1
+      }
+    }).then(xml => xmlChildrenParser(xml.children).smile);
+  }
+};
+
+
+class NicofinderStorage {
+  defaultItems = [
+    'player_setting_v2',
+    'comment_history'
+  ];
+
+  constructor() {
+    this.defaultItems.forEach(name => this.update(name));
+  }
+
+  set(name, value) {
+    if (!toString.call(this[name]).includes('Object')) return;
+    var nextValue = Object.assign({}, this[name], value);
+    localStorage.setItem(name, JSON.stringify(nextValue));
+  }
+
+  push(name, value) {
+    if (this[name] === null) {
+      this[name] = [];
+    } else if (!Array.isArray(this[name])) {
+      return false;
+    }
+
+    this[name].push(value);
+    localStorage.setItem(name, JSON.stringify(this[name]));
+  }
+
+  update(name) {
+    if (localStorage.getItem(name) === null) {
+      this[name] = null;
+    } else {
+      this[name] = JSON.parse(localStorage.getItem(name));
+    }
+  }
+};
+
+var storage = new NicofinderStorage();
+var nicofinder = new Nicofinder();
+
+// ↓ 古いやつ
 
 var Nico = {},
     Player = {};
@@ -16,142 +267,7 @@ Nico.player = {
     }
   },
 
-  init: function() {
-    this.video();
-
-    Player.watch.addEventListener('optionchange', function(e) {
-      Nico.storage.init('player_setting_v2');
-    }, false);
-
-    Player.watch.addEventListener('navigate', function(data) {
-      DATA = $.extend({}, DATA, data.detail);
-      Nico.player.video();
-    }, false);
-
-    Player.watch.addEventListener('initHTML5Video', function(e) {
-
-      // 匿名投稿オプションを表示
-      $('#comment_anonymity_post')
-        .prop('checked', Nico.storage.current.player_setting_v2.comment_anonymity_post)
-        .parent().removeClass('hide');
-
-      // コマンド変更イベントの登録
-      $('#player').on('change', '.player-command-panel input', function() {
-        var command = Nico.player.command.change($(this).val());
-        Nico.player.command.output(command);
-      });
-
-      // コマンド入力イベントの登録
-      $('.player-command-input').on('keyup blur', function(e) {
-        if([8, 32, 46, 37, 38, 39, 40].indexOf(e.which) >= 0) return;
-
-        var command = Nico.player.command.normalization($(this).val());
-        Nico.player.command.output(command);
-      });
-
-      // コマンドフォーカスイベント
-      $('.player-command-input').on('focus', function() {
-        $('.player-command-panel').addClass('show');
-
-        $(document).click(function(event) {
-          if (!$.contains($('#player').get(0), event.target)) {
-            $('.player-command-panel').removeClass('show');
-          }
-        });
-      });
-
-      // Enter / Return での投稿
-      // $('.player-comment-input').keyup(function(e) {
-      //   if(e.which === 13) $('.player-comment-send').click();
-      // });
-
-      // コメント投稿イベント
-      $('.player-comment-send').on('click', function() {
-        switch (Nico.player.state.type) {
-          case 'html5':
-            if(!Player.html5) return;
-            var currentTime = Player.html5.currentTime;
-            break;
-
-          case 'flash':
-            if(Player.flash.ext_getPlayheadTime === undefined) return;
-            var currentTime = Player.flash.ext_getPlayheadTime();
-            break;
-        }
-
-        Nico.player.comment.check(
-          $('.player-comment-input').val(),
-          $('.player-command-input').val(),
-          currentTime
-        );
-      });
-    });
-  },
-
-  video: function() {
-
-    // getflvAPI
-    var query = {
-      v: DATA.video.channel == '1' ? DATA.video.channel_thread : DATA.video.id
-    };
-
-    if (DATA.video.movie_type === 'flv') query.eco = 1;
-
-    Nico.api.flGetRequest('getflv', query)
-
-    .done(function(data) {
-      DATA.getflv = Nico.fn.parse_str(data);
-
-      // ログインしていない
-      if(DATA.getflv.closed == '1') {
-        console.warn(DATA.getflv);
-
-        $(Player.watch).addClass('logout');
-
-      } else {
-        Nico.player.state.getflv = true;
-
-        var main_id = (DATA.video.channel) ? DATA.video.channel_thread : DATA.video.id,
-
-            params = {
-              watch_harmful: 1
-            };
-
-        if (DATA.video.movie_type === 'flv') params.eco = 1;
-
-        $.get([
-          'http://www.nicovideo.jp/watch/',
-          main_id,
-          '?',
-          $.param(params)
-        ].join(''))
-
-        .done(function() {
-
-          $(Player.watch).addClass('login').attr({
-            'data-premium': DATA.getflv.is_premium,
-            'data-src': DATA.getflv.url
-          });
-
-          if (!Nico.player.state.command_panel) Nico.player.command.init();
-        })
-
-        .fail(function(data) {
-
-          console.error(data);
-
-        });
-
-      }
-    })
-
-    .fail(function(data) {
-      console.warn(data);
-    });
-  },
-
   command: {
-
     regExp: {
       position: /^ue$|^shita$|^naka$/g,
       color: /^white$|^red$|^pink$|^orange$|^yellow$|^green$|^cyan$|^blue$|^purple$|^black$|^white2$|^niconicowhite$|^red2$|^truered$|^pink2$|^orange2$|^passionorange$|^yellow2$|^madyellow$|^green2$|^elementalgreen$|^cyan2$|^blue2$|^marineblue$|^purple2$|^nobleviolet$|^black2$|^#[A-za-z0-9]{6}$/g,
@@ -163,6 +279,7 @@ Nico.player = {
     -----------------------------------*/
 
     init: function() {
+      if (Nico.player.state.command_panel) return;
       Nico.player.state.command_panel = true;
 
       var panel = {
@@ -215,7 +332,7 @@ Nico.player = {
 
       // 色コマンド
       for(var i = 0; i < colors.length; i++) {
-        if(Player.watch.dataset.premium == 0 && i === 1) continue;
+        if(nicofinder.getflv.is_premium == 0 && i === 1) continue;
 
         $(panel.right).append($('<fieldset>').attr('name', 'color').addClass('command-color'));
 
@@ -234,7 +351,7 @@ Nico.player = {
       }
 
       // カラーコード選択フォームの追加
-      if(Player.watch.dataset.premium == 1) {
+      if(nicofinder.getflv.is_premium == 1) {
         $(panel.right).find('.command-color').last()
           .append($('<input>').addClass('hex').attr({
             type: 'color',
@@ -275,7 +392,7 @@ Nico.player = {
 
       for(let key in command.advanced) {
         if(command.advanced[key]) {
-          key = (key == 184 && Nico.storage.current.player_setting_v2.comment_anonymity_post) ? null : key;
+          key = (key == 184 && storage.player_setting_v2.comment_anonymity_post) ? null : key;
           temp.push(key);
         }
       }
@@ -332,7 +449,7 @@ Nico.player = {
               patissier: false,
               ender: false,
               invisible: false,
-              184: Nico.storage.current.player_setting_v2.comment_anonymity_post
+              184: storage.player_setting_v2.comment_anonymity_post
             }
           };
 
@@ -366,7 +483,7 @@ Nico.player = {
 
   comment: {
     check: function(text, mail, vpos) {
-      if(!Nico.player.state.getflv) return;
+      if(!nicofinder.getflv) return;
 
       mail += ' ncf';
 
@@ -391,7 +508,7 @@ Nico.player = {
       }
 
       // 匿名設定で184コマンドが無ければコマンド付加
-      if(Nico.storage.current.player_setting_v2.comment_anonymity_post && !/(\s|^)184(\s|$)/.test(mail)) {
+      if(storage.player_setting_v2.comment_anonymity_post && !/(\s|^)184(\s|$)/.test(mail)) {
         mail += ' 184';
       };
 
@@ -423,9 +540,9 @@ Nico.player = {
 
       // 最新コメント数及び投稿チケットの取得
       Nico.api.requestMessageServer($('<packet>').append($('<thread>').attr({
-        thread: DATA.getflv.thread_id,
+        thread: nicofinder.getflv.thread_id,
         version: 20090904,
-        res_from: DATA.video.default_res
+        res_from: nicofinder.videoInfo.video.default_res
       })))
 
 
@@ -440,7 +557,7 @@ Nico.player = {
               clickRevision = $(xml).find('thread').attr('click_revision');
 
           return Nico.api.flGetRequest('getpostkey', {
-            thread: DATA.getflv.thread_id,
+            thread: nicofinder.getflv.thread_id,
             block_no: blockNo,
             device: 1,
             version: 1,
@@ -456,19 +573,19 @@ Nico.player = {
 
       // コメント投稿
       .then(function(key) {
-        postkey = Nico.fn.parse_str(key).postkey;
+        var postkey = Nico.fn.parse_str(key).postkey;
 
         // ポストキーがあれば
         if(postkey.length > 0) {
 
           return Nico.api.requestMessageServer($('<chat>').attr({
-            thread: DATA.getflv.thread_id,
+            thread: nicofinder.getflv.thread_id,
             vpos: vpos,
             mail: mail,
             ticket: ticket,
-            user_id: DATA.getflv.user_id,
+            user_id: nicofinder.getflv.user_id,
             postkey: postkey,
-            premium: DATA.getflv.is_premium
+            premium: nicofinder.getflv.is_premium
           }).html(text));
         } else {
           console.warn('PostKeyの取得に失敗したため、投稿処理を中断しました');
@@ -484,7 +601,7 @@ Nico.player = {
         if(Nico.player.comment.checkResult(+$(xml).find('chat_result').attr('status'))) {
 
           return Nico.api.requestMessageServer($('<packet>').append($('<thread>').attr({
-            thread: DATA.getflv.thread_id,
+            thread: nicofinder.getflv.thread_id,
             version: 20090904,
             res_from: $(xml).find('chat_result').attr('no'),
             scores: 1,
@@ -533,16 +650,16 @@ Nico.player = {
               }
             };
 
-        Nico.player.comment.sendLocalMessage(result);
+        nicofinder.dispatchPlayerEvent('extensionSendLocalMessage', result);
 
         // コメント履歴に記録
         Nico.player.state.comment.lastSend = text;
 
         chrome.storage.local.get({
           recordCommentHistory: defaultStorage.extension.local.recordCommentHistory
-        }, storage => {
-          if (storage.recordCommentHistory) {
-            Nico.storage.put('comment_history', {
+        }, response => {
+          if (response.recordCommentHistory) {
+            storage.push('comment_history', {
               thread: result.chat.thread,
               no: result.chat.no,
               vpos: result.chat.vpos,
@@ -556,81 +673,43 @@ Nico.player = {
       });
     },
 
-    sendLocalMessage: function(obj) {
-      switch (Nico.player.state.type) {
-        case 'html5':
-          if(!Player.html5) return;
-
-          Player.watch.dispatchEvent(new CustomEvent('extensionSendLocalMessage', {
-            detail: obj
-          }));
-          break;
-
-        case 'flash':
-          if(Player.flash.ext_getPlayheadTime === undefined) return;
-
-          for(var i = 0; i < obj.length; i++) {
-            Player.flash.ext_sendLocalMessage(obj[i].chat, obj[i].mail, ~~ (obj[i].vpos / 100));
-          }
-          break;
-      }
-    },
-
     checkResult: function(code) {
       switch (code) {
-        // 投稿成功
-        case 0:
+        case 0:  // 投稿成功
           console.info('投稿に成功しました!');
           return true;
-          break;
 
-        // 投稿拒否
-        case 1:
+        case 1:  // 投稿拒否
           console.warn('投稿が拒否されました');
           return false;
-          break;
 
-        // スレッドIDが変
-        case 2:
+        case 2:  // スレッドIDが変
           console.warn('スレッドIDがおかしいようです');
           return false;
-          break;
 
-        // 投稿チケットが変
-        case 3:
+        case 3:  // 投稿チケットが変
           console.warn('投稿チケットがおかしいようです');
           return false;
-          break;
 
-        // ポストキーがおかしい
-        case 4:
+        case 4:  // ポストキーがおかしい
           console.warn('ポストキーがおかしいようです');
           return false;
-          break;
 
-        // コメント投稿がブロックされている
-        case 5:
+        case 5:  // コメント投稿がブロックされている
           console.warn('コメント投稿がブロックされています');
           return false;
-          break;
 
-        // コメントが書き込めない
-        case 6:
+        case 6:  // コメントが書き込めない
           console.warn('コメントが書き込めませんでした');
           return false;
-          break;
 
-        // コメント数が長すぎる
-        case 8:
+        case 8:  // コメント数が長すぎる
           console.warn('コメント文字数が長すぎです');
           return false;
-          break;
 
-        // 例外エラー
-        default:
+        default:  // 例外エラー
           console.warn('例外エラーが発生しました');
           return false;
-          break;
       }
     }
   }
@@ -649,57 +728,21 @@ Nico.api = {
     });
   },
 
-  requestStoryboard: function(url, param) {
-    return $.ajax({
-      url: url,
-      type: 'get',
-      dataType: 'xml',
-      data: $.param(param)
-    });
-  },
-
   requestMessageServer: function(xml) {
 
     var ajax = {
-      url: DATA.getflv.ms,
+      url: nicofinder.getflv.ms,
       type: 'post',
       dataType: 'xml',
       contentType: 'text/xml',
       data: $(xml).get(0).outerHTML
     }
 
-    if (DATA.getflv.ms == 'http://nmsg.nicovideo.jp/api/') {
+    if (nicofinder.getflv.ms == 'http://nmsg.nicovideo.jp/api/') {
       ajax.contentType = 'application/xml';
     }
 
     return $.ajax(ajax);
-  }
-};
-
-
-Nico.storage = {
-  current: {},
-
-  init: function(key) {
-    if(localStorage.getItem(key)) {
-      this.current[key] = JSON.parse(localStorage.getItem(key));
-    } else {
-      this.current[key] = [];
-    }
-  },
-
-  set: function(key, obj) {
-    var val = JSON.stringify($.extend(this.current[key], obj));
-    localStorage.setItem(key, val);
-  },
-
-  put: function(key, obj) {
-    this.current[key].push(obj);
-    localStorage.setItem(key, JSON.stringify(this.current[key]));
-  },
-
-  remove: function(key, obj) {
-
   }
 };
 
@@ -713,73 +756,5 @@ Nico.fn = {
       result[kv[0]] = decodeURIComponent(kv[1]);
     }
     return result;
-  },
-
-  mscv: function(ms) {
-    ms = (ms < 0) ? 0 : ms;
-
-    var h = (3600 <= ms) ? this.zeroPad(~~ (ms / 3600)) : null;
-    var m = this.zeroPad(~~ ((ms / 60) % 60));
-    var s = this.zeroPad(~~ (ms % 60));
-
-    if(h != null) return h +':'+ m +':'+ s;
-    else return m +':'+ s;
-  },
-
-  tscv: function(ts) {
-    return ts.getFullYear() +'/'
-    + this.zeroPad(ts.getMonth() + 1) +'/'
-    + this.zeroPad(ts.getDate()) +' '
-    + this.zeroPad(ts.getHours()) +':'
-    + this.zeroPad(ts.getMinutes()) +':'
-    + this.zeroPad(ts.getSeconds());
-  },
-
-  zeroPad: function(n) {
-    return n < 10 ? '0'+ n : n;
   }
 };
-
-document.addEventListener('DOMContentLoaded', () => {
-
-  // watchページ
-  if (!/(www|dev|staging)\.nicofinder\.net/.test(window.location.hostname) ||
-      !/^\/(watch|player)\/(\d{10}|[a-z]{2}\d+)$/.test(window.location.pathname)) {
-    return false;
-  }
-
-  // データの読み込み
-  window.DATA = JSON.parse(document.querySelector('.watch-api').innerHTML);
-  window.wd = JSON.parse(document.querySelector('.watch-data').innerHTML);
-  if (DATA === null || wd === null) return false;
-
-  // Page Ver.2 以外サポートしない
-  if (wd.version != 2) {
-    return false;
-
-  } else {
-    Nico.storage.init('comment_history');
-    Nico.storage.init('player_setting_v2');
-    Player.watch = document.getElementById('player');
-
-    // オブザーバインスタンスを作成
-    var observer = new MutationObserver(function(mutations) {
-      mutations.forEach(function(mutation) {
-        for(var n = 0; n < mutation.addedNodes.length; n++) {
-          if(mutation.addedNodes[n].id === 'html5-video') {
-            Player.html5 = document.querySelector('#html5-video');
-            observer.disconnect();
-          }
-        }
-      });
-    });
-
-    // 対象ノードを監視
-    observer.observe(document.querySelector('#player'), {
-      childList: true,
-      subtree: true
-    });
-
-    Nico.player.init();
-  }
-});
