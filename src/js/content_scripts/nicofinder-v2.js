@@ -1,6 +1,6 @@
-import chrome from '../initialize';
+import $ from 'jquery';
 import { defaultStorage, regExp } from '../config';
-import { isDecimalNumber, xhr, xmlChildrenParser } from '../utils';
+import { getActiveTabs, isDecimalNumber, xhr, xmlChildrenParser } from '../utils';
 
 class Nicofinder {
   constructor() {
@@ -33,10 +33,24 @@ class Nicofinder {
     this.player.addEventListener('optionchange', storage.update('player_setting_v2'));
     this.player.addEventListener('navigate', e => this.stateChange('videoInfo', e.detail));
     this.player.addEventListener('initHTML5Video', ::this.initHTML5Video);
+
+    var observer = new MutationObserver(mutations => mutations.forEach(mutation => {
+      for (let item of mutation.addedNodes) {
+        if (item.nodeType === 1 && item.classList.contains('extension-receiver')) {
+          this.receiver = item;
+          observer.disconnect();
+          break;
+        }
+      }
+    }));
+
+    observer.observe(this.player, {
+      childList: true
+    });
   }
 
-  dispatchPlayerEvent(eventName, detail = null) {
-    this.player.dispatchEvent(new CustomEvent(eventName, { detail }));
+  dispatchPlayerEvent(data) {
+    this.receiver.value = JSON.stringify(data);
   }
 
   async reAuthRequest() {
@@ -45,10 +59,15 @@ class Nicofinder {
       eco: this.isForceEconomy()
     }).catch(e => {
       console.warn(e);
-      this.dispatchPlayerEvent('reAuthError', e);
+      this.dispatchPlayerEvent({
+        type: 'error',
+        data: 'reFetchNicohistory'
+      });
     });
 
-    this.dispatchPlayerEvent('reAuthResponse');
+    this.dispatchPlayerEvent({
+      type: 'reFetchNicohistory'
+    });
   }
 
   async videoWatchRequest() {
@@ -60,7 +79,7 @@ class Nicofinder {
       eco: forceEconomy
     });
 
-    if (this.getflv.closed === undefined) {
+    if (this.getflv.closed === void 0) {
       this.setLoginClass();
       Nico.player.command.init();
 
@@ -69,13 +88,13 @@ class Nicofinder {
         watch_harmful: 1,
         eco: forceEconomy
       }).then(() => {
-        this.dispatchPlayerEvent('extensionFetchResponse', {
+        this.dispatchPlayerEvent({
           type: 'getflv',
           data: this.getflv
         });
       }).catch(e => {
         console.warn(e);
-        this.dispatchPlayerEvent('extensionFetchResponse', {
+        this.dispatchPlayerEvent({
           type: 'error',
           data: 'nicohistory'
         });
@@ -84,18 +103,23 @@ class Nicofinder {
       // storyboard
       if (this.getflv.is_premium === 1) {
         NicoAPI.getStoryboard(this.getflv.url).then(storyboard => {
-          this.dispatchPlayerEvent('extensionFetchResponse', {
+          this.dispatchPlayerEvent({
             type: 'storyboard',
             data: storyboard
           });
         }).catch(e => {
           console.warn(e);
-          this.dispatchPlayerEvent('extensionFetchResponse', {
+          this.dispatchPlayerEvent({
             type: 'error',
             data: 'storyboard'
           });
         });
       }
+    } else {
+      this.dispatchPlayerEvent({
+        type: 'getflv',
+        data: this.getflv
+      });
     }
   }
 
@@ -650,7 +674,10 @@ Nico.player = {
               }
             };
 
-        nicofinder.dispatchPlayerEvent('extensionSendLocalMessage', result);
+        nicofinder.dispatchPlayerEvent({
+          type: 'extensionSendLocalMessage',
+          data: result
+        });
 
         // コメント履歴に記録
         Nico.player.state.comment.lastSend = text;

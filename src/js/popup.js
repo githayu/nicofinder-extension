@@ -1,4 +1,3 @@
-import chrome from './initialize';
 import { regExp } from './config';
 import { validateURL, getActiveTabs } from './utils';
 

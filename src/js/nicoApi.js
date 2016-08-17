@@ -1,4 +1,4 @@
-import { isDecimalNumber, xhr, xmlChildrenParser } from '../../js/utils';
+import { isDecimalNumber, xhr, xmlChildrenParser } from './utils';
 
 export default class NicoAPI {
   constructor(video) {

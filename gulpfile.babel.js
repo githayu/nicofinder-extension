@@ -1,15 +1,13 @@
 import gulp from 'gulp';
 import plumber from 'gulp-plumber';
+import ignore from 'gulp-ignore';
+import jsonminify from 'gulp-jsonminify';
 import compass from 'gulp-compass';
 import pleeease from 'gulp-pleeease';
-import babel from 'gulp-babel';
-import uglify from 'gulp-uglify';
-import jsonminify from 'gulp-jsonminify';
 import htmlmin from 'gulp-htmlmin';
+import webpack from 'webpack-stream';
 import through2 from 'through2';
-import ignore from 'gulp-ignore';
-import babelify from 'babelify';
-import browserify from 'browserify';
+import webpackConfig from './webpack.config.babel';
 
 // 監視対象
 const watchTasks = [
@@ -72,24 +70,10 @@ const PLEEEASE_OPTIONS = {
 
 // タスクたち
 gulp.task('javascript', () => {
-  return gulp.src(PATTERN.JAVASCRIPT, { base: 'src' })
+  return gulp.src(PATTERN.JAVASCRIPT)
   .pipe(plumber())
-  .pipe(through2.obj((file, encode, cb) => {
-    browserify(file.path, { debug: false })
-    .transform(babelify)
-    .bundle((err, res) => {
-      if (err) return cb(err);
-      file.contents = res;
-      cb(null, file);
-    })
-    .on('error', err => console.log(err));
-  }))
-  .pipe(uglify({
-    output: {
-      ascii_only: true
-    }
-  }))
-  .pipe(gulp.dest('dist'));
+  .pipe(webpack(webpackConfig))
+  .pipe(gulp.dest('dist/js'));
 });
 
 gulp.task('json', () => {

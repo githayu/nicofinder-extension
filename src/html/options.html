@@ -2,12 +2,30 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>コメント投稿履歴 - Nicofinder</title>
+  <title>設定 - Nicofinder</title>
   <link rel="stylesheet" href="/css/options.css" media="screen" title="options" charset="utf-8">
 </head>
 <body>
 
-  <div id="app"></div>
+  <div id="app">
+    <ul class="options">
+      <li v-for="option in options" class="{{ option.class }}">
+        <h2>{{ option.title }}</h2>
+        <label v-for="item in option.items">
+          <input
+            type="checkbox"
+            name="{{ item.name }}"
+            value="{{ item.value }}"
+            v-on:change="updater"
+            v-bind:checked="checker(option.type, item)"
+          >
+          <span>{{ item.label }}</span>
+        </label>
+      </li>
+    </ul>
+  </div>
+
+  <script src="/js/vendor.js"></script>
   <script src="/js/options.js"></script>
 
 </body>

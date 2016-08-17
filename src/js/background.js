@@ -1,5 +1,4 @@
-import chrome from './initialize';
-import { validateURL, xhr } from './utils';
+import { getActiveTabs, validateURL, xhr } from './utils';
 import { define, defaultStorage } from './config';
 
 class Background {
@@ -34,6 +33,14 @@ class Background {
 
         case 'sendBackgroundDebugger': {
           console.log(request.data);
+          break;
+        }
+
+        case 'executeScript': {
+          chrome.tabs.executeScript({
+            code: request.data,
+            runAt: 'document_end'
+          }, res => console.log(res));
           break;
         }
       }
