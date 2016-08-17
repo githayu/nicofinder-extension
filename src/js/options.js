@@ -62,7 +62,6 @@ var app = new Vue({
         }
       }
 
-      console.log(result);
       chrome.storage.local.set(result);
     },
 
@@ -75,8 +74,7 @@ var app = new Vue({
         }
 
         case 'redirect': {
-          return this.storage.redirect && this.storage.redirectList.includes(item.value) ||
-                 this.storage.redirect && this.storage.redirectList.length === 0;
+          return this.storage.redirect && this.storage.redirectList.includes(item.value) || this.storage.redirectList.length === 0;
         }
       }
     }

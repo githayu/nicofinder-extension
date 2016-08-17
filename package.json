@@ -14,15 +14,11 @@
     "release": "cd dist && zip -qr ../nicofinder-extension.zip . -x *.DS_Store"
   },
   "devDependencies": {
-    "autoprefixer": "^6.4.0",
     "babel-core": "^6.13.2",
-    "babel-loader": "^6.2.4",
+    "babel-loader": "^6.2.5",
     "babel-plugin-transform-runtime": "^6.12.0",
     "babel-preset-es2015": "^6.13.2",
-    "babel-preset-react": "^6.11.1",
     "babel-preset-stage-0": "^6.5.0",
-    "css-loader": "^0.23.1",
-    "file-loader": "^0.9.0",
     "gulp": "github:gulpjs/gulp#4.0",
     "gulp-babel": "^6.1.2",
     "gulp-compass": "^2.1.0",
@@ -32,12 +28,8 @@
     "gulp-pleeease": "^2.0.2",
     "gulp-plumber": "^1.1.0",
     "jquery": "^3.1.0",
-    "node-sass": "^3.8.0",
-    "postcss-loader": "^0.10.0",
-    "sass-loader": "^4.0.0",
-    "style-loader": "^0.13.1",
-    "uglify-js": "^2.7.1",
-    "vue": "^1.0.26-csp",
+    "uglify-js": "^2.7.2",
+    "vue": "github:vuejs/vue#csp",
     "webpack": "^1.13.1",
     "webpack-stream": "^3.2.0"
   }

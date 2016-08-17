@@ -1,5 +1,4 @@
 import webpack from 'webpack';
-import autoprefixer from 'autoprefixer';
 
 const DEBUG = !process.argv.includes('--release');
 const VERBOSE = process.argv.includes('--verbose');
@@ -45,31 +44,22 @@ export default {
     }),
     ...(DEBUG ? [] : [
       new webpack.optimize.DedupePlugin(),
-      new webpack.optimize.UglifyJsPlugin({ compress: { screw_ie8: true, warnings: VERBOSE } }),
+      new webpack.optimize.UglifyJsPlugin({
+        compress: {
+          warnings: VERBOSE
+        },
+        comments: false
+      }),
       new webpack.optimize.AggressiveMergingPlugin()
     ])
   ],
-  resolve: {
-    extensions: ['', '.js', '.css', '.scss']
-  },
   module: {
     loaders: [
       {
         test: /\.js$/,
         loader: 'babel',
         exclude: /node_modules/
-      }, {
-        test: /\.css$/,
-        loaders: ['style', 'css', 'postcss']
-      }, {
-        test: /\.scss$/,
-        loaders: ['style', 'css', 'postcss', 'sass']
       }
     ]
-  },
-  postcss: [
-    autoprefixer({
-      browsers: ['last 1 versions']
-    })
-  ]
+  }
 }
