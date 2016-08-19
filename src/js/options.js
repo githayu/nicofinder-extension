@@ -35,7 +35,7 @@ var app = new Vue({
     ]
   },
   methods: {
-    updater: function(e) {
+    updater(e) {
       var target = e.target,
           result = {};
 
@@ -65,7 +65,7 @@ var app = new Vue({
       chrome.storage.local.set(result);
     },
 
-    checker: function(type, item) {
+    checker(type, item) {
       if (!this.storage) return false;
 
       switch (type) {
@@ -79,7 +79,8 @@ var app = new Vue({
       }
     }
   },
-  created: function() {
+
+  created() {
     chrome.storage.local.get(defaultStorage.extension.local, storage => {
       this.storage = storage;
     });

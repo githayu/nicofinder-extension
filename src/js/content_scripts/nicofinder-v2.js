@@ -135,12 +135,6 @@ class Nicofinder {
 
   stateChange(name, value) {
     this[name] = value;
-
-    switch (name) {
-      case 'videoInfo':
-        this.videoWatchRequest();
-        break;
-    }
   }
 
   isForceEconomy() {
