@@ -1,4 +1,4 @@
-import { getActiveTabs, validateURL, xhr } from './utils';
+import utils from './utils';
 import { define, defaultStorage } from './config';
 
 class Background {
@@ -14,7 +14,7 @@ class Background {
         }
 
         case 'fetchVideoAPI': {
-          xhr({
+          utils.xhr({
             url: define.nicoapi.videoInfo,
             method: 'post',
             type: 'json',
@@ -79,7 +79,7 @@ class Background {
       var match,
           redirectUrl;
 
-      if (match = validateURL(details.url, { domain: 'nicovideo', name: 'content' })) {
+      if (match = utils.validateURL(details.url, { domain: 'nicovideo', name: 'content' })) {
         redirectUrl = Object.values({
           domain: define.nicofinder.host,
           content: match[2],
@@ -103,7 +103,7 @@ class Background {
       contexts: ['link'],
       targetUrlPatterns: ['*://*.nicovideo.jp/*'],
       onclick: info => {
-        var match = validateURL(info.linkUrl, {
+        var match = utils.validateURL(info.linkUrl, {
           domain: 'nicovideo',
           name: 'content'
         });
@@ -128,7 +128,7 @@ class Background {
       contexts: ['link'],
       targetUrlPatterns: ['http://www.nicovideo.jp/watch/*'],
       onclick: info => {
-        var match = validateURL(info.linkUrl, {
+        var match = utils.validateURL(info.linkUrl, {
           domain: 'nicovideo',
           name: 'watch'
         });

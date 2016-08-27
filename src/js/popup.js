@@ -1,5 +1,5 @@
 import { regExp } from './config';
-import { validateURL, getActiveTabs } from './utils';
+import utils from './utils';
 
 class Popup {
   constructor() {
@@ -7,10 +7,10 @@ class Popup {
   }
 
   async initialize() {
-    var tabs = await getActiveTabs(),
+    var tabs = await utils.getActiveTabs(),
         match;
 
-    if (match = validateURL(tabs[0].url, { domain: 'nicovideo', name: 'watch' })) {
+    if (match = utils.validateURL(tabs[0].url, { domain: 'nicovideo', name: 'watch' })) {
       let videoId = match[2];
 
       this.type = 'watch';
@@ -36,7 +36,7 @@ class Popup {
           tab: 'create'
         }
       ]);
-    } else if (match = validateURL(tabs[0].url, { domain: 'nicovideo', name: 'mylist' })) {
+    } else if (match = utils.validateURL(tabs[0].url, { domain: 'nicovideo', name: 'mylist' })) {
       let mylistId = match[2];
 
       this.appendAction([
@@ -128,7 +128,7 @@ class Popup {
           }
 
           default: {
-            getActiveTabs().then(tabs => {
+            utils.getActiveTabs().then(tabs => {
               chrome.tabs.update(tabs[0].id, {
                 url: aTag.href
               }, () => window.close());

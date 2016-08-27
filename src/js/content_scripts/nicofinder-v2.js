@@ -1,6 +1,7 @@
 import $ from 'jquery';
+import utils from '../utils';
 import { defaultStorage, regExp } from '../config';
-import { getActiveTabs, isDecimalNumber, xhr, xmlChildrenParser } from '../utils';
+import NicoAPI from '../nicoApi';
 
 class Nicofinder {
   constructor() {
@@ -28,7 +29,9 @@ class Nicofinder {
 
   initialize() {
     this.player = document.getElementById('player');
-    this.player.addEventListener('reAuthRequest', ::this.reAuthRequest);
+    this.player.addEventListener('reAuthRequest', ::this.getNicohistoryRequest);
+    this.player.addEventListener('getDmcSesstionRequest', ::this.getDmcSesstionRequest);
+    this.player.addEventListener('videoQualityChangeRequest', ::this.videoQualityChangeRequest);
     this.player.addEventListener('videoWatchRequest', ::this.videoWatchRequest);
     this.player.addEventListener('optionchange', storage.update('player_setting_v2'));
     this.player.addEventListener('navigate', e => this.stateChange('videoInfo', e.detail));
@@ -53,15 +56,11 @@ class Nicofinder {
     this.receiver.value = JSON.stringify(data);
   }
 
-  async reAuthRequest() {
-    await NicoAPI.getNicoHistory(this.getMainVideoId(), {
-      watch_harmful: 1,
-      eco: this.isForceEconomy()
-    }).catch(e => {
-      console.warn(e);
+  async getNicohistoryRequest() {
+    await this.fetchWatchPage().catch(e => {
       this.dispatchPlayerEvent({
         type: 'error',
-        data: 'reFetchNicohistory'
+        data: e
       });
     });
 
@@ -70,30 +69,61 @@ class Nicofinder {
     });
   }
 
+  async fetchDmcToken() {
+    await this.fetchWatchPage();
+
+    if (this.watchAPIData.flashvars.isDmc) {
+      this.dmcInfo = JSON.parse(decodeURIComponent(this.watchAPIData.flashvars.dmcInfo));
+    }
+  }
+
+  async fetchWatchPage(economy) {
+    var watchPage = await NicoAPI.getNicoHistory(this.getMainVideoId(), {
+      watch_harmful: 1,
+      eco: economy || this.isForceEconomy()
+    });
+
+    var parser = new DOMParser(),
+        watchDocument = parser.parseFromString(watchPage, 'text/html');
+
+    this.watchAPIData = JSON.parse(watchDocument.getElementById('watchAPIDataContainer').innerText);
+  }
+
   async videoWatchRequest() {
     var forceEconomy = this.isForceEconomy(),
         mainVideoId = this.getMainVideoId();
 
-    this.getflv = await NicoAPI.getflv({
+    this.flvInfo = await NicoAPI.getflv({
       v: mainVideoId,
       eco: forceEconomy
     });
 
-    if (this.getflv.closed === void 0) {
+    if (this.flvInfo.closed === void 0) {
       this.setLoginClass();
       Nico.player.command.init();
 
-      // nicohistory
-      await NicoAPI.getNicoHistory(mainVideoId, {
-        watch_harmful: 1,
-        eco: forceEconomy
-      }).then(() => {
+      // nicohistory & dmc
+      await this.fetchDmcToken().then(async res => {
+        var data = {
+          getflv: this.flvInfo
+        };
+
+        if (this.watchAPIData.flashvars.isDmc) {
+          await this.dmcSession('get');
+
+          data = Object.assign({}, data, {
+            dmcInfo: this.dmcInfo,
+            dmcSession: utils.xmlChildrenParser(this.dmcSessionXML.children)
+          });
+        }
+
         this.dispatchPlayerEvent({
-          type: 'getflv',
-          data: this.getflv
+          type: 'watch',
+          data
         });
       }).catch(e => {
         console.warn(e);
+
         this.dispatchPlayerEvent({
           type: 'error',
           data: 'nicohistory'
@@ -101,8 +131,8 @@ class Nicofinder {
       });
 
       // storyboard
-      if (this.getflv.is_premium === 1) {
-        NicoAPI.getStoryboard(this.getflv.url).then(storyboard => {
+      if (this.flvInfo.is_premium === 1) {
+        NicoAPI.getStoryboard(this.flvInfo.url).then(storyboard => {
           this.dispatchPlayerEvent({
             type: 'storyboard',
             data: storyboard
@@ -118,13 +148,120 @@ class Nicofinder {
     } else {
       this.dispatchPlayerEvent({
         type: 'getflv',
-        data: this.getflv
+        data: this.flvInfo
       });
     }
   }
 
+  async dmcSession(mode, dmcInfo = null, session = null) {
+    if (dmcInfo === null) dmcInfo = this.dmcInfo.session_api;
+
+    var sessionXML = await NicoAPI.dmcSession(mode, dmcInfo, session);
+
+    switch (mode) {
+      case 'get':
+      case 'put':
+        this.dmcSessionXML = sessionXML;
+        break;
+      case 'delete':
+        this.dmcSessionXML = null;
+        break;
+    }
+  }
+
+  getDmcSesstionRequest() {
+    this.dmcSession('put', null, this.dmcSessionXML);
+  }
+
+  async videoQualityChangeRequest(e) {
+    const mode = e.detail;
+    var result;
+
+    if (this.dmcSessionXML !== null) {
+      await this.dmcSession('delete', null, this.dmcSessionXML);
+    }
+
+    switch (mode) {
+      case 'smile':
+      case 'smile-economy': {
+        await this.fetchWatchPage(mode.endsWith('economy') ? 1 : 0);
+
+        this.flvInfo = utils.decodeURLParams(decodeURIComponent(this.watchAPIData.flashvars.flvInfo));
+
+        result = {
+          mode: 'smile',
+          values: {
+            getflv: this.flvInfo
+          }
+        };
+
+        break;
+      }
+
+      default: {
+        await this.fetchDmcToken();
+        await this.dmcSession('get', Object.assign({}, this.dmcInfo.session_api, {
+          videos: this.videoQualiltySelector(mode)
+        }));
+
+        result = {
+          mode: 'dmc',
+          values: {
+            dmcInfo: this.dmcInfo,
+            dmcSession: utils.xmlChildrenParser(this.dmcSessionXML.children)
+          }
+        };
+      }
+    }
+
+    this.dispatchPlayerEvent({
+      type: 'quality',
+      data: result
+    });
+  }
+
+  videoQualiltySelector(mode) {
+    var videoQualitys = Array.from(this.dmcInfo.session_api.videos),
+        splitQualitys = videoQualitys.map(quality => ({
+          value: quality,
+          kbps: quality.match(/(\d+)kbps/)[1],
+          progressive: quality.match(/(\d+)p$/)[1]
+        }));
+
+    switch (mode) {
+      case 'auto': {
+        splitQualitys.sort((a, b) => {
+          return a.progressive < b.progressive || a.progressive === b.progressive && a.kbps < b.kbps;
+        });
+
+        videoQualitys = splitQualitys.map(quality => quality.value);
+        break;
+      }
+
+      case 'economy': {
+        splitQualitys.sort((a, b) => {
+          return a.progressive > b.progressive || a.progressive === b.progressive && a.kbps > b.kbps;
+        });
+
+        videoQualitys = splitQualitys.map(quality => quality.value);
+        break;
+      }
+
+      default: {
+        let index = videoQualitys.indexOf(mode);
+
+        if (index === -1) return;
+
+        // 優先度を最高にする
+        videoQualitys.unshift(...videoQualitys.splice(index, 1));
+      }
+    }
+
+    return videoQualitys;
+  }
+
   setLoginClass() {
-    if (this.getflv.closed === 1) {
+    if (this.flvInfo.closed === 1) {
       this.player.classList.remove('login');
       this.player.classList.add('logout');
     } else {
@@ -190,46 +327,6 @@ class Nicofinder {
     });
   }
 };
-
-class NicoAPI {
-  static async getflv(qs) {
-    var data = await xhr({
-      method: 'post',
-      url: 'http://flapi.nicovideo.jp/api/getflv',
-      type: 'text',
-      qs
-    });
-
-    var result = {};
-
-    data.split('&').forEach(query => {
-      var [key, value] = query.split('=');
-      result[key] = isDecimalNumber(value) ? Number(value) : decodeURIComponent(value);
-    });
-
-    return result;
-  }
-
-  static async getNicoHistory(id, qs) {
-    return await xhr({
-      method: 'post',
-      url: `http://www.nicovideo.jp/watch/${id}`,
-      type: 'text',
-      qs
-    });
-  }
-
-  static async getStoryboard(url) {
-    return await xhr({
-      url,
-      type: 'xml',
-      qs: {
-        sb: 1
-      }
-    }).then(xml => xmlChildrenParser(xml.children).smile);
-  }
-};
-
 
 class NicofinderStorage {
   defaultItems = [
@@ -350,7 +447,7 @@ Nico.player = {
 
       // 色コマンド
       for(var i = 0; i < colors.length; i++) {
-        if(nicofinder.getflv.is_premium == 0 && i === 1) continue;
+        if(nicofinder.flvInfo.is_premium == 0 && i === 1) continue;
 
         $(panel.right).append($('<fieldset>').attr('name', 'color').addClass('command-color'));
 
@@ -369,7 +466,7 @@ Nico.player = {
       }
 
       // カラーコード選択フォームの追加
-      if(nicofinder.getflv.is_premium == 1) {
+      if(nicofinder.flvInfo.is_premium == 1) {
         $(panel.right).find('.command-color').last()
           .append($('<input>').addClass('hex').attr({
             type: 'color',
@@ -501,7 +598,7 @@ Nico.player = {
 
   comment: {
     check: function(text, mail, vpos) {
-      if(!nicofinder.getflv) return;
+      if(!nicofinder.flvInfo) return;
 
       mail += ' ncf';
 
@@ -558,7 +655,7 @@ Nico.player = {
 
       // 最新コメント数及び投稿チケットの取得
       Nico.api.requestMessageServer($('<packet>').append($('<thread>').attr({
-        thread: nicofinder.getflv.thread_id,
+        thread: nicofinder.flvInfo.thread_id,
         version: 20090904,
         res_from: nicofinder.videoInfo.video.default_res
       })))
@@ -575,7 +672,7 @@ Nico.player = {
               clickRevision = $(xml).find('thread').attr('click_revision');
 
           return Nico.api.flGetRequest('getpostkey', {
-            thread: nicofinder.getflv.thread_id,
+            thread: nicofinder.flvInfo.thread_id,
             block_no: blockNo,
             device: 1,
             version: 1,
@@ -597,13 +694,13 @@ Nico.player = {
         if(postkey.length > 0) {
 
           return Nico.api.requestMessageServer($('<chat>').attr({
-            thread: nicofinder.getflv.thread_id,
+            thread: nicofinder.flvInfo.thread_id,
             vpos: vpos,
             mail: mail,
             ticket: ticket,
-            user_id: nicofinder.getflv.user_id,
+            user_id: nicofinder.flvInfo.user_id,
             postkey: postkey,
-            premium: nicofinder.getflv.is_premium
+            premium: nicofinder.flvInfo.is_premium
           }).html(text));
         } else {
           console.warn('PostKeyの取得に失敗したため、投稿処理を中断しました');
@@ -619,7 +716,7 @@ Nico.player = {
         if(Nico.player.comment.checkResult(+$(xml).find('chat_result').attr('status'))) {
 
           return Nico.api.requestMessageServer($('<packet>').append($('<thread>').attr({
-            thread: nicofinder.getflv.thread_id,
+            thread: nicofinder.flvInfo.thread_id,
             version: 20090904,
             res_from: $(xml).find('chat_result').attr('no'),
             scores: 1,
@@ -752,14 +849,14 @@ Nico.api = {
   requestMessageServer: function(xml) {
 
     var ajax = {
-      url: nicofinder.getflv.ms,
+      url: nicofinder.flvInfo.ms,
       type: 'post',
       dataType: 'xml',
       contentType: 'text/xml',
       data: $(xml).get(0).outerHTML
     }
 
-    if (nicofinder.getflv.ms == 'http://nmsg.nicovideo.jp/api/') {
+    if (nicofinder.flvInfo.ms == 'http://nmsg.nicovideo.jp/api/') {
       ajax.contentType = 'application/xml';
     }
 

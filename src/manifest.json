@@ -1,6 +1,6 @@
 {
   "name": "Nicofinder",
-  "version": "2.1.2",
+  "version": "2.2.0",
   "manifest_version": 2,
   "description": "Nicofinderでの動画視聴を支援する拡張機能です。",
   "author": "Hayu",
@@ -11,7 +11,8 @@
     "contextMenus",
     "webRequestBlocking",
     "*://*.nicofinder.net/*",
-    "*://*.nicovideo.jp/*"
+    "*://*.nicovideo.jp/*",
+    "*://*.dmc.nico/*"
   ],
   "browser_action": {
     "default_icon": {
@@ -36,7 +37,7 @@
   "content_scripts": [
     {
       "matches": [
-        "*://*.nicofinder.net/*"
+        "*://www.nicofinder.net/*"
       ],
       "js": [
         "js/vendor.js",

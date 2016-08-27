@@ -11,7 +11,7 @@
   },
   "scripts": {
     "compile": "gulp all",
-    "release": "cd dist && zip -qr ../nicofinder-extension.zip . -x *.DS_Store"
+    "release": "webpack --release && cd dist && zip -qr ../nicofinder-extension.zip . -x *.DS_Store"
   },
   "devDependencies": {
     "babel-core": "^6.13.2",
