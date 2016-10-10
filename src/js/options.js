@@ -1,5 +1,6 @@
 import Vue from 'vue';
 import { defaultStorage } from './config';
+import '../css/options.css';
 
 var app = new Vue({
   el: '#app',
@@ -12,8 +13,8 @@ var app = new Vue({
         class: 'options-section',
         items: [
           {
-            name: 'recordCommentHistory',
-            label: 'コメント履歴を記録する'
+            name: 'webFeatures',
+            label: '試験運用中の WebPlatform 向け機能を優先する'
           }
         ]
       }, {
@@ -36,20 +37,20 @@ var app = new Vue({
   },
   methods: {
     updater(e) {
-      var target = e.target,
-          result = {};
+      var target = e.target;
+      var result = {};
 
       switch (target.name) {
-        case 'recordCommentHistory': {
+        case 'webFeatures': {
           result = {
-            recordCommentHistory: target.checked
+            webFeatures: target.checked
           };
           break;
         }
 
         case 'redirectList': {
-          let redirectList = Array.from(new Set(this.storage.redirectList)),
-              index = redirectList.indexOf(target.value);
+          let redirectList = Array.from(new Set(this.storage.redirectList));
+          let index = redirectList.indexOf(target.value);
 
           if (target.checked && index <= 0) {
             redirectList.push(target.value);
@@ -58,6 +59,7 @@ var app = new Vue({
           }
 
           result = { redirectList };
+
           break;
         }
       }
@@ -74,8 +76,24 @@ var app = new Vue({
         }
 
         case 'redirect': {
-          return this.storage.redirect && this.storage.redirectList.includes(item.value) || this.storage.redirectList.length === 0;
+          return this.storage.redirect && this.storage.redirectList.includes(item.value);
         }
+      }
+    },
+
+    disabledChecker(type, item) {
+      if (typeof this.storage === 'object') {
+        let checkList = [
+          type === 'redirect',
+          this.storage.redirectList.length === 1,
+          this.storage.redirectList.includes(item.value)
+        ];
+
+        if (!this.storage.redirect || checkList.every(check => check === true)) {
+          return true;
+        }
+      } else {
+        return true;
       }
     }
   },

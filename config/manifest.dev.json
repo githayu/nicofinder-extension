@@ -1,0 +1,30 @@
+{
+  "content_security_policy": "script-src 'self' 'unsafe-eval'; object-src 'self'",
+  "content_scripts": [
+    {
+      "matches": [
+        "*://next.dev.nicofinder.net/*"
+      ],
+      "js": [
+        "js/vendor.js",
+        "js/content_scripts/extension-provider.js",
+        "js/content_scripts/nicofinder-v3.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": true
+    }
+  , {
+      "matches": [
+        "*://dev.nicofinder.net/*",
+        "*://www.nicofinder.net/*"
+      ],
+      "js": [
+        "js/vendor.js",
+        "js/content_scripts/extension-provider.js",
+        "js/content_scripts/nicofinder-v2.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": true
+    }
+  ]
+}

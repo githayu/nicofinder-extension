@@ -1,4 +1,4 @@
-import { regExp } from './config';
+import { regExpItems } from './config';
 
 export default class Utils {
   static getActiveTabs() {
@@ -8,9 +8,23 @@ export default class Utils {
     }, resolve));
   }
 
-  static validateURL(url, options) {
-    if (options === undefined) return false;
-    return url.match(regExp[options.domain][options.name]);
+  static getMatchURL(domain, url) {
+    var result = false;
+    var target = regExpItems[domain];
+
+    Object.entries(target.content).forEach(([content, regExp]) => {
+      var match = url.match(new RegExp(target.domain + regExp));
+
+      if (Array.isArray(match)) {
+        return result = {
+          domain,
+          content,
+          match
+        }
+      }
+    });
+
+    return result;
   }
 
   static isDecimalNumber(string) {

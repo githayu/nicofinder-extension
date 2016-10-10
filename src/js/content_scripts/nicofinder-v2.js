@@ -1,6 +1,6 @@
 import $ from 'jquery';
 import utils from '../utils';
-import { defaultStorage, regExp } from '../config';
+import { defaultStorage, regExpItems } from '../config';
 import NicoAPI from '../nicoApi';
 
 class Nicofinder {
@@ -9,8 +9,9 @@ class Nicofinder {
   }
 
   domContentLoaded() {
-    if (!regExp.nicofinder.host.test(location.hostname) ||
-        !regExp.nicofinder.v2.test(window.location.pathname)) {
+    var matchGroup = utils.getMatchURL('nicofinder', location.href);
+
+    if (matchGroup === false || !['watch', 'player'].includes(matchGroup.content)) {
       return false;
     }
 
@@ -773,20 +774,14 @@ Nico.player = {
         // コメント履歴に記録
         Nico.player.state.comment.lastSend = text;
 
-        chrome.storage.local.get({
-          recordCommentHistory: defaultStorage.extension.local.recordCommentHistory
-        }, response => {
-          if (response.recordCommentHistory) {
-            storage.push('comment_history', {
-              thread: result.chat.thread,
-              no: result.chat.no,
-              vpos: result.chat.vpos,
-              mail: result.chat.mail,
-              user_id: result.chat.user_id,
-              body: result.chat.content,
-              date: result.chat.date
-            });
-          }
+        storage.push('comment_history', {
+          thread: result.chat.thread,
+          no: result.chat.no,
+          vpos: result.chat.vpos,
+          mail: result.chat.mail,
+          user_id: result.chat.user_id,
+          body: result.chat.content,
+          date: result.chat.date
         });
       });
     },

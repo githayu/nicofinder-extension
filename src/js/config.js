@@ -1,12 +1,19 @@
-export const regExp = {
+export const regExpItems = {
   nicovideo: {
-    watch: /^https?:\/\/(www|sp).nicovideo.jp\/watch\/(\d{10}|(sm|so|nm)\d+)/,
-    mylist: /^https?:\/\/(www|sp).nicovideo.jp\/mylist\/(\d+)/,
-    content: /^https?:\/\/(www|sp).nicovideo.jp\/(watch|mylist)\/(\d+|(sm|so|nm)\d+)/
+    domain: '^https?:\/\/(www|sp)\.nicovideo.jp',
+    content: {
+      watch: '\/watch\/(\\d{10}|[a-z]{2}\\d+)',
+      mylist: '\/mylist\/(\\d+)',
+    }
   },
   nicofinder: {
-    host: /^.*\.nicofinder\.net$/,
-    v2: /^\/(watch|player)\/(\d{10}|[a-z]{2}\d+)$/
+    domain: '^https?:\/\/([a-zA-Z0-9.-]+\.)?nicofinder\.net',
+    content: {
+      watch: '\/watch\/(\\d{10}|[a-z]{2}\\d+)',
+      mylist: '\/mylist\/(\\d+)',
+      search: '\/search\/(.*)',
+      player: '\/player\/(\\d{10}|[a-z]{2}\\d+)'
+    }
   }
 };
 
@@ -24,7 +31,7 @@ export const defaultStorage = {
     local: {
       redirect: false,
       redirectList: [],
-      recordCommentHistory: true
+      webFeatures: false
     }
   }
-}
+};

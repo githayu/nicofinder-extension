@@ -1,59 +1,56 @@
+import 'babel-register';
 import gulp from 'gulp';
+import gif from 'gulp-if';
 import plumber from 'gulp-plumber';
 import ignore from 'gulp-ignore';
+import mergeJSON from 'gulp-merge-json';
 import jsonminify from 'gulp-jsonminify';
-import compass from 'gulp-compass';
-import pleeease from 'gulp-pleeease';
-import htmlmin from 'gulp-htmlmin';
+import minimist from 'minimist';
 import webpack from 'webpack-stream';
 import through2 from 'through2';
+
 import webpackConfig from './webpack.config.babel';
+import manifestDevConfig from './config/manifest.dev.json';
+
+const options = minimist(process.argv.slice(2), {
+  string: 'env',
+  default: {
+    env: process.env.NODE_ENV || 'production'
+  }
+});
+
+const isProd = options.env === 'production';
+const isDev = isProd === false;
 
 // 監視対象
 const watchTasks = [
-  'javascript',
   'json',
-  'html',
-  'sass',
-  'css',
-  'copy'
+  'other'
 ];
 
 // パターン
-var PATTERN = {
-  JAVASCRIPT: [
-    'src/js/**/*.js'
-  ],
+var Pattern = {
   JSON: [
     'src/**/*.json'
-  ],
-  HTML: [
-    'src/**/*.html'
-  ],
-  SASS: [
-    'src/**/*.scss'
-  ],
-  CSS: [
-    'src/**/*.css'
   ]
 };
 
 // コピー機
-PATTERN.COPY = (() => {
+Pattern.Other = (() => {
   var result = [
     'src/**/*',
-    '!src/**/esx/**/*',
-    '!src/**/sass/**/*',
-    '!src/**/node_modules/**/*',
-    '!src/**/.DS_Store'
+    '!src/(js|css|html)/**/*'
   ];
 
-  Object.values(PATTERN).forEach(pattern => {
-    let newPattern = [];
+  Object.values(Pattern).forEach(pattern => {
+    var newPattern = [];
 
     Array.from(pattern).forEach(text => {
-      if (text.includes('node_modules')) newPattern.push(text.slice(1));
-      else newPattern.push(text.startsWith('!') ? text : '!'+ text);
+      if (text.includes('node_modules')) {
+        newPattern.push(text.slice(1));
+      } else {
+        newPattern.push(text.startsWith('!') ? text : '!'+ text);
+      }
     });
 
     result.push(...newPattern);
@@ -62,73 +59,32 @@ PATTERN.COPY = (() => {
   return result;
 })();
 
-const PLEEEASE_OPTIONS = {
-  autoprefix: {
-    browsers: ['last 1 version']
-  }
-};
-
 // タスクたち
-gulp.task('javascript', () => {
-  return gulp.src(PATTERN.JAVASCRIPT)
-  .pipe(plumber())
-  .pipe(webpack(webpackConfig))
-  .pipe(gulp.dest('dist/js'));
-});
+gulp.task('json', () =>
+  gulp.src(Pattern.JSON, { base: 'src' })
+    .pipe(gif(isDev, mergeJSON({
+      fileName: 'manifest.json',
+      edit: (json, file) => Object.assign({}, json, manifestDevConfig)
+    })))
+    .pipe(gif(isProd, jsonminify()))
+    .pipe(gulp.dest('dist'))
+);
 
-gulp.task('json', () => {
-  return gulp.src(PATTERN.JSON, { base: 'src' })
-  .pipe(jsonminify())
-  .pipe(gulp.dest('dist'));
-});
-
-gulp.task('html', () => {
-  return gulp.src(PATTERN.HTML, { base: 'src' })
-  .pipe(plumber())
-  .pipe(htmlmin({
-    collapseWhitespace: true,
-    collapseInlineTagWhitespace: true,
-    removeComments: true,
-    minifyCSS: true,
-    minifyJS: true
-  }))
-  .pipe(gulp.dest('dist'));
-});
-
-gulp.task('css', function() {
-  return gulp.src(PATTERN.CSS, { base: 'src' })
+gulp.task('other', () =>
+  gulp.src(Pattern.Other, { base: 'src' })
     .pipe(plumber())
-    .pipe(pleeease(PLEEEASE_OPTIONS))
-    .pipe(gulp.dest('dist'));
-});
+    .pipe(ignore.include({
+      isFile: true
+    }))
+    .pipe(gulp.symlink('dist'))
+);
 
-gulp.task('sass', async () => {
-  return gulp.src(PATTERN.SASS)
-  .pipe(through2.obj(file => {
-    var sassDir = file.path.match(/^([\w\.\-\/]+)\/sass\//),
-        project = sassDir.length ? sassDir.pop() : false;
+gulp.task('watch', () =>
+  watchTasks.forEach(task =>
+    gulp.watch(Pattern[task.toUpperCase()], gulp.parallel(task))
+  )
+);
 
-    return gulp.src(file.path)
-    .pipe(plumber())
-    .pipe(compass({ project }));
-  }));
-});
-
-gulp.task('copy', () => {
-  return gulp.src(PATTERN.COPY, { base: 'src' })
-  .pipe(plumber())
-  .pipe(ignore.include({
-    isFile: true
-  }))
-  .pipe(gulp.dest('dist'));
-});
-
-gulp.task('watch', () => {
-  for (let task of watchTasks) {
-    gulp.watch(PATTERN[task.toUpperCase()], gulp.parallel(task));
-  }
-});
-
-gulp.task('all', gulp.series(...Object.keys(PATTERN).map(pattern => pattern.toLowerCase())));
+gulp.task('all', gulp.series(...Object.keys(Pattern).map(pattern => pattern.toLowerCase())));
 
 gulp.task('default', gulp.series('watch'));

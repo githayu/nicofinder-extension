@@ -1,4 +1,4 @@
-@import "./_common";
+@import "common";
 
 #container {
   display: flex;
@@ -8,6 +8,9 @@
     min-width: 200px;
     flex: 200px;
     background-color: #fff;
+    margin: 0;
+    padding: 0;
+    list-style: none;
 
     &:empty {
       display: none;

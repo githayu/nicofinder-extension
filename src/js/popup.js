@@ -1,5 +1,5 @@
-import { regExp } from './config';
 import utils from './utils';
+import '../css/popup.css';
 
 class Popup {
   constructor() {
@@ -7,17 +7,19 @@ class Popup {
   }
 
   async initialize() {
-    var tabs = await utils.getActiveTabs(),
-        match;
+    var tabs = await utils.getActiveTabs();
+    var matchGroup = utils.getMatchURL('nicovideo', tabs[0].url);
 
-    if (match = utils.validateURL(tabs[0].url, { domain: 'nicovideo', name: 'watch' })) {
-      let videoId = match[2];
+    if (matchGroup !== false) {
+      var contentId = matchGroup.match[2];
+    }
 
+    if (matchGroup.content === 'watch') {
       this.type = 'watch';
-      this.videoInfo = await this.backgroundIO('getBackgroundData', 'videoInfo', videoId);
+      this.videoInfo = await this.backgroundIO('getBackgroundData', 'videoInfo', contentId);
 
       if (this.videoInfo === null) {
-        this.videoInfo = await this.backgroundIO('fetchVideoAPI', videoId);
+        this.videoInfo = await this.backgroundIO('fetchVideoAPI', contentId);
       }
 
       this.thumbnailRender();
@@ -36,14 +38,12 @@ class Popup {
           tab: 'create'
         }
       ]);
-    } else if (match = utils.validateURL(tabs[0].url, { domain: 'nicovideo', name: 'mylist' })) {
-      let mylistId = match[2];
-
+    } else if (matchGroup.content === 'mylist') {
       this.appendAction([
         {
           type: 'link',
           label: 'Nicofinderで開く',
-          link: `http://www.nicofinder.net/mylist/${mylistId}`,
+          link: `http://www.nicofinder.net/mylist/${contentId}`,
           class: ['mylist'],
           tab: 'current'
         }
@@ -107,9 +107,9 @@ class Popup {
     var actions = document.querySelector('.actions');
 
     for (let item of req) {
-      let liTag = document.createElement('li'),
-          liClass = Array.isArray(item.class) ? item.class.concat([item.type]) : [item.type],
-          aTag = document.createElement('a');
+      let liTag = document.createElement('li');
+      let liClass = Array.isArray(item.class) ? item.class.concat([item.type]) : [item.type];
+      let aTag = document.createElement('a');
 
       liTag.classList.add(...liClass);
 
@@ -145,8 +145,8 @@ class Popup {
   thumbnailRender() {
     switch (this.type) {
       case 'watch': {
-        let thumbnail = document.querySelector('.thumbnail'),
-            img = new Image();
+        let thumbnail = document.querySelector('.thumbnail');
+        let img = new Image();
 
         img.addEventListener('load', () => {
           thumbnail.style.backgroundImage = `url(${img.src})`;
@@ -166,4 +166,4 @@ class Popup {
   }
 }
 
-var popup = new Popup();
+new Popup();

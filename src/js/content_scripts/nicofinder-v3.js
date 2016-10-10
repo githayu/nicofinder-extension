@@ -14,7 +14,7 @@ class NicofinderWebExtension {
 
     switch (request.type) {
       case 'watch':
-        this.videoData = request.data;
+        this.videoInfo = request.data;
         this.watchRequest();
         break;
     }
@@ -26,16 +26,16 @@ class NicofinderWebExtension {
   }
 
   async watchRequest() {
-    var forceEconomy = this.videoData.movieType === 'flv' ? 1 : 0;
+    var forceEconomy = this.videoInfo.movieType === 'flv' ? 1 : 0;
 
     this.getflv = await NicoAPI.getflv({
-      v: this.videoData.mainThreadId,
+      v: this.videoInfo.mainThreadId,
       eco: forceEconomy
     });
 
     if (this.getflv.closed === void 0) {
       // nicohistory
-      await NicoAPI.getNicoHistory(this.videoData.mainThreadId, {
+      await NicoAPI.getNicoHistory(this.videoInfo.mainThreadId, {
         watch_harmful: 1,
         eco: forceEconomy
       }).then(() => {
