@@ -3,25 +3,12 @@
   "content_scripts": [
     {
       "matches": [
-        "*://next.dev.nicofinder.net/*"
+        "*://*.nicofinder.net/*"
       ],
       "js": [
         "js/vendor.js",
         "js/content_scripts/extension-provider.js",
-        "js/content_scripts/nicofinder-v3.js"
-      ],
-      "run_at": "document_start",
-      "all_frames": true
-    }
-  , {
-      "matches": [
-        "*://dev.nicofinder.net/*",
-        "*://www.nicofinder.net/*"
-      ],
-      "js": [
-        "js/vendor.js",
-        "js/content_scripts/extension-provider.js",
-        "js/content_scripts/nicofinder-v2.js"
+        "js/content_scripts/nicofinder.js"
       ],
       "run_at": "document_start",
       "all_frames": true

@@ -1,30 +1,61 @@
 import { regExpItems } from './config';
 
-export default class Utils {
+export class DetailURL {
+  constructor(url) {
+    try {
+      this.url = new URL(url);
+    } catch(e) {
+      return false;
+    }
+  }
+
+  getContentDir() {
+    const dir = this.url.pathname.split('/').filter(i => i.length > 0).shift();
+
+    switch (dir) {
+      case 'watch':
+      case 'mylist':
+      case 'search':
+        return dir;
+
+      default:
+        return false;
+    }
+  }
+
+  getContentId() {
+    const rootDir = this.getContentDir();
+
+    switch (rootDir) {
+      case 'mylist':
+      case 'watch':
+      case 'search':
+        return this.url.pathname.split('/').pop();
+
+      default:
+        return false;
+    }
+  }
+
+  hasDir(...req) {
+    return req.includes(this.getContentDir());
+  }
+
+  get isNicofinder() {
+    return this.url.hostname === 'www.nicofinder.net';
+  }
+
+  get isNiconico() {
+    return this.url.hostname === 'www.nicovideo.jp';
+  }
+}
+
+export class Utils {
   static getActiveTabs() {
     return new Promise(resolve => chrome.tabs.query({
       active: true,
       currentWindow: true
     }, resolve));
-  }
-
-  static getMatchURL(domain, url) {
-    var result = false;
-    var target = regExpItems[domain];
-
-    Object.entries(target.content).forEach(([content, regExp]) => {
-      var match = url.match(new RegExp(target.domain + regExp));
-
-      if (Array.isArray(match)) {
-        return result = {
-          domain,
-          content,
-          match
-        }
-      }
-    });
-
-    return result;
   }
 
   static isDecimalNumber(string) {

@@ -1,18 +1,18 @@
-import utils from './utils';
+import { Utils } from './utils';
 
 export default class NicoAPI {
   static async getflv(qs) {
-    return await utils.xhr({
+    return await Utils.xhr({
       method: 'post',
       url: 'http://flapi.nicovideo.jp/api/getflv',
       type: 'text',
       qs
     })
-    .then(res => utils.decodeURLParams(res));
+    .then(res => Utils.decodeURLParams(res));
   }
 
   static async getNicoHistory(id, qs) {
-    return await utils.xhr({
+    return await Utils.xhr({
       method: 'post',
       url: `http://www.nicovideo.jp/watch/${id}`,
       type: 'text',
@@ -21,14 +21,14 @@ export default class NicoAPI {
   }
 
   static async getStoryboard(url) {
-    return await utils.xhr({
+    return await Utils.xhr({
       url,
       type: 'xml',
       qs: {
         sb: 1
       }
     })
-    .then(xml => utils.xmlChildrenParser(xml.children).smile);
+    .then(xml => Utils.xmlChildrenParser(xml.children).smile);
   }
 
   static async dmcSession(mode, dmcInfo, session) {
@@ -61,7 +61,7 @@ export default class NicoAPI {
       }
     }
 
-    var response = await utils.xhr({
+    var response = await Utils.xhr({
       url,
       method: 'post',
       type: contentType,

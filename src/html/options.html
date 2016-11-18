@@ -5,24 +5,7 @@
 </head>
 <body>
 
-  <div id="app">
-    <ul class="options">
-      <li v-for="option in options" class="{{ option.class }}">
-        <h2>{{ option.title }}</h2>
-        <label v-for="item in option.items">
-          <input
-            type="checkbox"
-            name="{{ item.name }}"
-            value="{{ item.value }}"
-            v-on:change="updater"
-            v-bind:checked="checker(option.type, item)"
-            v-bind:disabled="disabledChecker(option.type, item)"
-          >
-          <span>{{ item.label }}</span>
-        </label>
-      </li>
-    </ul>
-  </div>
+  <div id="app"></div>
 
 </body>
 </html>

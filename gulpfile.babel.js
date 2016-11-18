@@ -6,21 +6,17 @@ import ignore from 'gulp-ignore';
 import mergeJSON from 'gulp-merge-json';
 import jsonminify from 'gulp-jsonminify';
 import minimist from 'minimist';
-import webpack from 'webpack-stream';
-import through2 from 'through2';
-
-import webpackConfig from './webpack.config.babel';
 import manifestDevConfig from './config/manifest.dev.json';
 
 const options = minimist(process.argv.slice(2), {
   string: 'env',
   default: {
-    env: process.env.NODE_ENV || 'production'
+    env: process.env.NODE_ENV || 'development'
   }
 });
 
 const isProd = options.env === 'production';
-const isDev = isProd === false;
+const isDev = options.env === 'development';
 
 // 監視対象
 const watchTasks = [
@@ -62,6 +58,7 @@ Pattern.Other = (() => {
 // タスクたち
 gulp.task('json', () =>
   gulp.src(Pattern.JSON, { base: 'src' })
+    .pipe(plumber())
     .pipe(gif(isDev, mergeJSON({
       fileName: 'manifest.json',
       edit: (json, file) => Object.assign({}, json, manifestDevConfig)

@@ -1,4 +1,4 @@
-import utils from './utils';
+import { Utils, DetailURL } from './utils';
 import '../css/popup.css';
 
 class Popup {
@@ -7,49 +7,15 @@ class Popup {
   }
 
   async initialize() {
-    var tabs = await utils.getActiveTabs();
-    var matchGroup = utils.getMatchURL('nicovideo', tabs[0].url);
+    const tabs = await Utils.getActiveTabs();
+    const detailURL = new DetailURL(tabs[0].url);
 
-    if (matchGroup !== false) {
-      var contentId = matchGroup.match[2];
-    }
+    if (detailURL.isNiconico) {
+      var contentId = detailURL.getContentId();
 
-    if (matchGroup.content === 'watch') {
-      this.type = 'watch';
-      this.videoInfo = await this.backgroundIO('getBackgroundData', 'videoInfo', contentId);
-
-      if (this.videoInfo === null) {
-        this.videoInfo = await this.backgroundIO('fetchVideoAPI', contentId);
+      if (contentId) {
+        this.renderContent(detailURL);
       }
-
-      this.thumbnailRender();
-      this.appendAction([
-        {
-          type: 'link',
-          label: 'Nicofinderで視聴',
-          link: `http://www.nicofinder.net/watch/${this.videoInfo.video.id}`,
-          class: ['watch'],
-          tab: 'current'
-        }, {
-          type: 'link',
-          label: 'コメント解析',
-          link: `http://www.nicofinder.net/comment/${this.videoInfo.video.id}`,
-          class: ['comment'],
-          tab: 'create'
-        }
-      ]);
-    } else if (matchGroup.content === 'mylist') {
-      this.appendAction([
-        {
-          type: 'link',
-          label: 'Nicofinderで開く',
-          link: `http://www.nicofinder.net/mylist/${contentId}`,
-          class: ['mylist'],
-          tab: 'current'
-        }
-      ]);
-    } else {
-      document.querySelector('.redirect-toggler').classList.add('nonNon');
     }
 
     // リダイレクト状態の反映
@@ -83,6 +49,58 @@ class Popup {
         });
       }
     });
+  }
+
+  async renderContent(detailURL) {
+    const contentId = detailURL.getContentId();
+
+    switch (detailURL.getContentDir()) {
+      case 'watch':
+        this.type = 'watch';
+        this.videoInfo = await this.backgroundIO('getBackgroundData', 'videoInfo', contentId);
+
+        if (this.videoInfo === null) {
+          this.videoInfo = await this.backgroundIO('fetchVideoAPI', contentId);
+        }
+
+        this.thumbnailRender();
+
+        this.appendAction([
+          {
+            type: 'link',
+            label: 'Nicofinderで視聴',
+            link: `http://www.nicofinder.net/watch/${this.videoInfo.video.id}`,
+            class: ['watch'],
+            tab: 'current'
+          }, {
+            type: 'link',
+            label: 'コメント解析',
+            link: `http://www.nicofinder.net/comment/${this.videoInfo.video.id}`,
+            class: ['comment'],
+            tab: 'create'
+          }
+        ]);
+        break;
+
+      case 'mylist':
+        this.appendAction([
+          {
+            type: 'link',
+            label: 'Nicofinderで開く',
+            link: `http://www.nicofinder.net/mylist/${contentId}`,
+            class: ['mylist'],
+            tab: 'current'
+          }
+        ]);
+        break;
+
+      default:
+        this.renderMismatchContent()
+    }
+  }
+
+  renderMismatchContent() {
+    document.querySelector('.redirect-toggler').classList.add('nonNon');
   }
 
   backgroundIO(type, data, options) {
@@ -128,7 +146,7 @@ class Popup {
           }
 
           default: {
-            utils.getActiveTabs().then(tabs => {
+            Utils.getActiveTabs().then(tabs => {
               chrome.tabs.update(tabs[0].id, {
                 url: aTag.href
               }, () => window.close());
@@ -143,25 +161,19 @@ class Popup {
   }
 
   thumbnailRender() {
-    switch (this.type) {
-      case 'watch': {
-        let thumbnail = document.querySelector('.thumbnail');
-        let img = new Image();
+    let thumbnail = document.querySelector('.thumbnail');
+    let img = new Image();
 
-        img.addEventListener('load', () => {
-          thumbnail.style.backgroundImage = `url(${img.src})`;
-          thumbnail.style.display = 'block';
-        });
+    img.addEventListener('load', () => {
+      thumbnail.style.backgroundImage = `url(${img.src})`;
+      thumbnail.style.display = 'block';
+    });
 
-        if (this.videoInfo.video.options['@large_thumbnail'] == 1) {
-          img.src = `${this.videoInfo.video.thumbnail_url}.L`;
-        } else {
-          img.src = this.videoInfo.video.thumbnail_url;
-          thumbnail.classList.add('small');
-        }
-
-        break;
-      }
+    if (this.videoInfo.video.options['@large_thumbnail'] == 1) {
+      img.src = `${this.videoInfo.video.thumbnail_url}.L`;
+    } else {
+      img.src = this.videoInfo.video.thumbnail_url;
+      thumbnail.classList.add('small');
     }
   }
 }

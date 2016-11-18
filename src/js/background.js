@@ -1,5 +1,5 @@
-import utils from './utils';
-import { define, defaultStorage } from './config';
+import { Utils, DetailURL } from './utils';
+import { baseURL, defaultStorage } from './config';
 
 class Background {
   static webRequestOptions = {
@@ -17,20 +17,18 @@ class Background {
     this.redirectMap = new Map();
 
     // I/O
-    chrome.runtime.onMessage.addListener(::this.messenger);
+    chrome.runtime.onMessage.addListener(this.messenger.bind(this));
 
     // リダイレクト
-    chrome.webRequest.onBeforeRequest.addListener(::this.onBeforeRequest, Background.webRequestOptions, [
+    chrome.webRequest.onBeforeRequest.addListener(this.onBeforeRequest.bind(this), Background.webRequestOptions, [
       'blocking'
     ]);
 
-    // リダイレクト判定
-    chrome.webRequest.onBeforeSendHeaders.addListener(::this.onBeforeSendHeaders, Background.webRequestOptions, [
+    chrome.webRequest.onBeforeSendHeaders.addListener(this.onBeforeSendHeaders.bind(this), Background.webRequestOptions, [
       'requestHeaders'
     ]);
 
-    // リダイレクトキャンセル
-    chrome.webRequest.onHeadersReceived.addListener(::this.onHeadersReceived, Background.webRequestOptions, [
+    chrome.webRequest.onHeadersReceived.addListener(this.onHeadersReceived.bind(this), Background.webRequestOptions, [
       'blocking',
       'responseHeaders'
     ]);
@@ -56,14 +54,14 @@ class Background {
       contexts: ['link'],
       targetUrlPatterns: ['*://*.nicovideo.jp/*'],
       onclick: info => {
-        var matchGroup = utils.getMatchURL('nicovideo', info.linkUrl);
+        const detailURL = new DetailURL(info.linkUrl);
 
-        if (matchGroup !== false && ['watch', 'mylist'].includes(matchGroup.content)) {
+        if (detailURL.isNiconico && detailURL.hasDir('watch', 'mylist')) {
           chrome.tabs.create({
             url: [
-              define.nicofinder.host,
-              matchGroup.content,
-              matchGroup.match[2]
+              baseURL.nicofinder.top,
+              detailURL.getContentDir(),
+              detailURL.getContentId()
             ].join('/')
           });
         }
@@ -78,15 +76,11 @@ class Background {
       contexts: ['link'],
       targetUrlPatterns: ['http://www.nicovideo.jp/watch/*'],
       onclick: info => {
-        var matchGroup = utils.getMatchURL('nicovideo', info.linkUrl);
+        const detailURL = new DetailURL(info,linkUrl);
 
-        if (matchGroup !== false && matchGroup.content === 'watch') {
+        if (detailURL.isNiconico && detailURL.hasDir('watch')) {
           chrome.tabs.create({
-            url: [
-              define.nicofinder.host,
-              'comment',
-              matchGroup.match[2]
-            ].join('/')
+            url: `${baseURL.nicofinder.top}/comment/${detailURL.getContentId()}`
           });
         }
       }
@@ -102,8 +96,8 @@ class Background {
       }
 
       case 'fetchVideoAPI': {
-        utils.xhr({
-          url: define.nicoapi.videoInfo,
+        Utils.xhr({
+          url: baseURL.nicoapi.videoInfo,
           method: 'post',
           type: 'json',
           qs: {
@@ -128,25 +122,27 @@ class Background {
         isRedirect: false
       };
 
-      var nicovideoMatch = utils.getMatchURL('nicovideo', details.url);
-      var nicofinderMatch = utils.getMatchURL('nicofinder', details.url);
+      // 移動後のURLを確認
+      const detailURL = new DetailURL(details.url);
+      const contentDir = detailURL.getContentDir();
+      const contentId = detailURL.getContentId();
 
-      if (nicovideoMatch !== false) {
-        if (this.store.redirectList.includes(nicovideoMatch.content)) {
-          let url = new URL(define.nicofinder.host);
+      if (detailURL.isNiconico) {
+        if (detailURL.hasDir(...this.store.redirectList)) {
+          let url = new URL(baseURL.nicofinder.top);
 
-          url.pathname = `${nicovideoMatch.content}/${nicovideoMatch.match[2]}`;
+          url.pathname = `${contentDir}/${contentId}`;
 
           redirectRequest = Object.assign({}, redirectRequest, {
             isRedirect: true,
             redirectUrl: url.href,
-            redirectMatch: nicovideoMatch
+            detailURL: detailURL
           });
         }
       }
 
-      if (nicofinderMatch !== false) {
-        if (this.store.webFeatures && nicofinderMatch.content === 'search') {
+      if (detailURL.isNicofinder) {
+        if (this.store.webFeatures && contentDir === 'search') {
           let url = new URL(details.url);
           let query = decodeURIComponent(url.pathname.split('/').pop());
 
@@ -156,7 +152,7 @@ class Background {
           redirectRequest = Object.assign({}, redirectRequest, {
             isRedirect: true,
             redirectUrl: url.href,
-            redirectMatch: nicofinderMatch
+            detailURL: detailURL
           });
         }
       }
@@ -170,11 +166,15 @@ class Background {
       let redirectRequest = this.redirectMap.get(details.requestId);
       let referer = details.requestHeaders.find(item => item.name === 'Referer');
 
-      if (referer !== undefined && 'redirectUrl' in redirectRequest) {
-        let matchGroup = utils.getMatchURL('nicofinder', referer.value);
+      if (referer !== undefined && redirectRequest.hasOwnProperty('redirectUrl')) {
+        let detailURL = new DetailURL(referer.value);
+        let redirectCheck = [
+          detailURL.url.hostname !== redirectRequest.detailURL.url.hostname,
+          detailURL.getContentDir() === redirectRequest.detailURL.getContentDir()
+        ];
 
-        if (redirectRequest.redirectMatch.content === matchGroup.content) {
-          redirectRequest.isRedirect = matchGroup === false;
+        if (redirectCheck.every(i => i)) {
+          redirectRequest.isRedirect = false;
         }
       }
     }

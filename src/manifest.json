@@ -1,6 +1,6 @@
 {
   "name": "Nicofinder",
-  "version": "2.3.0",
+  "version": "2.3.1",
   "manifest_version": 2,
   "description": "Nicofinderでの動画視聴を支援する拡張機能です。",
   "author": "Hayu",
@@ -29,11 +29,6 @@
       "js/background.js"
     ]
   },
-  "applications": {
-    "gecko": {
-      "id": "extension@nicofinder.net"
-    }
-  },
   "content_scripts": [
     {
       "matches": [
@@ -42,7 +37,7 @@
       "js": [
         "js/vendor.js",
         "js/content_scripts/extension-provider.js",
-        "js/content_scripts/nicofinder-v2.js"
+        "js/content_scripts/nicofinder.js"
       ],
       "run_at": "document_start",
       "all_frames": true

@@ -2,9 +2,10 @@ import webpack from 'webpack';
 import ExtractTextPlugin from 'extract-text-webpack-plugin';
 import HtmlWebpackPlugin from 'html-webpack-plugin';
 
-const ENV = process.argv.includes('--production') ? 'production' : 'development';
-const isDev = ENV === 'development';
-const isProd = ENV === 'production';
+process.env.NODE_ENV = process.argv.includes('-p') ? 'production' : 'development';
+
+const isDev = process.env.NODE_ENV !== 'production';
+const isProd = process.env.NODE_ENV === 'production';
 
 const Entries = {
   vendor: {
@@ -24,12 +25,8 @@ const Entries = {
     path: './src/js/options'
   },
   contentNicofinder: {
-    name: 'content_scripts/nicofinder-v2',
-    path: './src/js/content_scripts/nicofinder-v2'
-  },
-  contentNicofinderFuture: {
-    name: 'content_scripts/nicofinder-v3',
-    path: './src/js/content_scripts/nicofinder-v3'
+    name: 'content_scripts/nicofinder',
+    path: './src/js/content_scripts/nicofinder'
   },
   contentProvider: {
     name: 'content_scripts/extension-provider',
@@ -85,54 +82,73 @@ export default {
   devtool: isDev ? 'eval-source-map' : false,
 
   plugins: [
-    new webpack.optimize.OccurenceOrderPlugin(),
     new webpack.optimize.CommonsChunkPlugin({
       name: Entries.vendor.name,
       minChunks: Infinity
     }),
     new webpack.DefinePlugin({
-      'process.env.NODE_ENV': JSON.stringify(ENV)
+      'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV)
+    }),
+    new ExtractTextPlugin('css/[name].css'),
+    new webpack.LoaderOptionsPlugin({
+      minimize: isProd,
+      debug: isDev,
+      options: {
+        postcss: webpack => ([
+          require('precss')({
+            addDependencyTo: webpack
+          }),
+          require('cssnano')({
+           discardComments: {
+             removeAll: true
+            }
+          })
+        ])
+      }
     }),
     ...HtmlWebpackPluginEntries.map(entry =>
       new HtmlWebpackPlugin(Object.assign({}, HtmlWebpackPluginConfig, entry))
     ),
-    new ExtractTextPlugin('css/[name].css'),
     ...isProd ? [
-      new webpack.optimize.DedupePlugin(),
-      new webpack.optimize.UglifyJsPlugin({
-        compress: {
-          warnings: false
-        },
-        comments: false
-      }),
       new webpack.optimize.AggressiveMergingPlugin()
     ] : []
   ],
 
   module: {
-    loaders: [
+    rules: [
       {
-        test: /\.js$/,
-        loader: 'babel',
-        exclude: /node_modules/
+        test: /\.jsx?$/,
+        loader: 'babel-loader',
+        exclude: /node_modules/,
+        query: {
+          presets: [
+            'react',
+            ['env', {
+              modules: false,
+              targets: {
+                browsers: 'last 2 Chrome versions'
+              }
+            }]
+          ]
+        }
       },
       {
         test: /\.css$/,
-        loader: ExtractTextPlugin.extract('style', 'css!postcss')
+        loader: ExtractTextPlugin.extract({
+          fallbackLoader: 'style-loader',
+          loader: [
+            {
+              loader: 'css-loader',
+              options: {
+                modules: true
+              }
+            },
+            {
+              loader: 'postcss-loader'
+            }
+          ]
+        })
       }
     ]
-  },
-
-  postcss: webpack => ([
-    require('postcss-import')({
-      addDependencyTo: webpack
-    }),
-    require('postcss-nested'),
-    require('postcss-simple-vars'),
-    require('cssnano')({
-      discardComments: {
-        removeAll: true
-      }
-    })
-  ])
+  }
 }

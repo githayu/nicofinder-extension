@@ -1,4 +1,4 @@
-@import "normalize.css";
+@import url('https://cdnjs.cloudflare.com/ajax/libs/normalize/5.0.0/normalize.min.css');
 
 html {
   font-size: 62.5%;

@@ -1,11 +1,10 @@
-import Vue from 'vue';
+import React from 'react';
+import ReactDOM from 'react-dom';
 import { defaultStorage } from './config';
 import '../css/options.css';
 
-var app = new Vue({
-  el: '#app',
-  data: {
-    storage: null,
+export default class Options extends React.Component {
+  static defaultProps = {
     options: [
       {
         type: 'options',
@@ -34,81 +33,131 @@ var app = new Vue({
         ]
       }
     ]
-  },
-  methods: {
-    updater(e) {
-      var target = e.target;
-      var result = {};
+  }
 
-      switch (target.name) {
-        case 'webFeatures': {
-          result = {
-            webFeatures: target.checked
-          };
-          break;
-        }
+  constructor() {
+    super();
 
-        case 'redirectList': {
-          let redirectList = Array.from(new Set(this.storage.redirectList));
-          let index = redirectList.indexOf(target.value);
+    this.state = {
+      storage: null
+    };
+  }
 
-          if (target.checked && index <= 0) {
-            redirectList.push(target.value);
-          } else if (index >= 0) {
-            redirectList.splice(index, 1);
-          }
-
-          result = { redirectList };
-
-          break;
-        }
-      }
-
-      chrome.storage.local.set(result);
-    },
-
-    checker(type, item) {
-      if (!this.storage) return false;
-
-      switch (type) {
-        case 'options': {
-          return this.storage[item.name];
-        }
-
-        case 'redirect': {
-          return this.storage.redirect && this.storage.redirectList.includes(item.value);
-        }
-      }
-    },
-
-    disabledChecker(type, item) {
-      if (typeof this.storage === 'object') {
-        let checkList = [
-          type === 'redirect',
-          this.storage.redirectList.length === 1,
-          this.storage.redirectList.includes(item.value)
-        ];
-
-        if (!this.storage.redirect || checkList.every(check => check === true)) {
-          return true;
-        }
-      } else {
-        return true;
-      }
-    }
-  },
-
-  created() {
+  componentWillMount() {
     chrome.storage.local.get(defaultStorage.extension.local, storage => {
-      this.storage = storage;
+      this.setState({ storage });
     });
 
     chrome.storage.onChanged.addListener((changes, namespace) => {
+      let newStorage = {}
+
       for (let name in changes) {
-        this.storage = Object.assign({}, this.storage, {
-          [name]: changes[name].newValue
-        });
+        newStorage[name] = changes[name].newValue;
       }
+
+      this.setState({
+        storage: Object.assign({}, this.state.storage, newStorage)
+      });
     });
   }
-});
+
+  shouldCheck(type, item) {
+    const { storage } = this.state;
+
+    switch (type) {
+      case 'options': {
+        return storage[item.name];
+      }
+
+      case 'redirect': {
+        return storage.redirect && storage.redirectList.includes(item.value);
+      }
+    }
+  }
+
+  shouldDisabled(type, item) {
+    const { storage } = this.state;
+
+    if (type === 'redirect') {
+      let checkList = [
+        storage.redirectList.length === 1,
+        storage.redirectList.includes(item.value)
+      ];
+
+      return !storage.redirect || checkList.every(i => i === true);
+    } else {
+      return false;
+    }
+  }
+
+  onChangeHandler = e => {
+    var target = e.target;
+    var result = {};
+
+    switch (target.name) {
+      case 'webFeatures': {
+        result = {
+          webFeatures: target.checked
+        };
+        break;
+      }
+
+      case 'redirectList': {
+        let redirectList = Array.from(new Set(this.state.storage.redirectList));
+        let index = redirectList.indexOf(target.value);
+
+        if (target.checked && index <= 0) {
+          redirectList.push(target.value);
+        } else if (index >= 0) {
+          redirectList.splice(index, 1);
+        }
+
+        result = { redirectList };
+        break;
+      }
+    }
+
+    chrome.storage.local.set(result);
+  }
+
+  renderOptions() {
+    const { options } = this.props;
+
+    if (!this.state.storage) return;
+
+    return options.map(option =>
+      <li className={option.class}>
+        <h2>{option.title}</h2>
+
+        {
+          option.items.map(item =>
+            <label>
+              <input
+                type="checkbox"
+                name={item.name}
+                value={item.value}
+                onChange={this.onChangeHandler}
+                checked={this.shouldCheck(option.type, item)}
+                disabled={this.shouldDisabled(option.type, item)}
+              />
+              <span>{item.label}</span>
+            </label>
+          )
+        }
+      </li>
+    );
+  }
+
+  render() {
+    return (
+      <ul className="options">
+        {this.renderOptions()}
+      </ul>
+    );
+  }
+}
+
+ReactDOM.render(
+  React.createElement(Options),
+  document.getElementById('app')
+);
