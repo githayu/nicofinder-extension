@@ -1,4 +1,3 @@
-import 'babel-register';
 import gulp from 'gulp';
 import gif from 'gulp-if';
 import plumber from 'gulp-plumber';
@@ -6,6 +5,7 @@ import ignore from 'gulp-ignore';
 import mergeJSON from 'gulp-merge-json';
 import jsonminify from 'gulp-jsonminify';
 import minimist from 'minimist';
+import del from 'del';
 import manifestDevConfig from './config/manifest.dev.json';
 
 const options = minimist(process.argv.slice(2), {
@@ -18,27 +18,21 @@ const options = minimist(process.argv.slice(2), {
 const isProd = options.env === 'production';
 const isDev = options.env === 'development';
 
-// 監視対象
-const watchTasks = [
-  'json',
-  'other'
-];
-
 // パターン
-var Pattern = {
-  JSON: [
+var entries = {
+  json: [
     'src/**/*.json'
   ]
 };
 
 // コピー機
-Pattern.Other = (() => {
+entries.other = (() => {
   var result = [
     'src/**/*',
     '!src/(js|css|html)/**/*'
   ];
 
-  Object.values(Pattern).forEach(pattern => {
+  Object.values(entries).forEach(pattern => {
     var newPattern = [];
 
     Array.from(pattern).forEach(text => {
@@ -57,7 +51,7 @@ Pattern.Other = (() => {
 
 // タスクたち
 gulp.task('json', () =>
-  gulp.src(Pattern.JSON, { base: 'src' })
+  gulp.src(entries.json, { base: 'src' })
     .pipe(plumber())
     .pipe(gif(isDev, mergeJSON({
       fileName: 'manifest.json',
@@ -68,7 +62,7 @@ gulp.task('json', () =>
 );
 
 gulp.task('other', () =>
-  gulp.src(Pattern.Other, { base: 'src' })
+  gulp.src(entries.other, { base: 'src' })
     .pipe(plumber())
     .pipe(ignore.include({
       isFile: true
@@ -77,11 +71,13 @@ gulp.task('other', () =>
 );
 
 gulp.task('watch', () =>
-  watchTasks.forEach(task =>
-    gulp.watch(Pattern[task.toUpperCase()], gulp.parallel(task))
+  Object.keys(entries).forEach(task =>
+    gulp.watch(entries[task], gulp.parallel(task))
   )
 );
 
-gulp.task('all', gulp.series(...Object.keys(Pattern).map(pattern => pattern.toLowerCase())));
+gulp.task('clean', () => del(['dist', '*.zip']));
+
+gulp.task('build', gulp.series('clean', gulp.parallel(...Object.keys(entries))));
 
 gulp.task('default', gulp.series('watch'));

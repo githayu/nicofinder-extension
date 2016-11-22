@@ -1,12 +1,5 @@
 {
   "presets": [
-    "react",
-    ["latest", {
-      "modules": false
-    }]
-  ],
-  "plugins": [
-    "transform-runtime",
-    "transform-class-properties"
+    "latest"
   ]
 }

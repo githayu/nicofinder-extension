@@ -1,5 +1,6 @@
 import $ from 'jquery';
 import getIn from 'lodash.get';
+import setIn from 'lodash.set';
 import { Utils, DetailURL } from '../utils';
 import NicoAPI from '../nicoApi';
 
@@ -54,7 +55,7 @@ class Nicofinder {
     this.player.addEventListener('videoQualityChangeRequest', this.videoQualityChangeRequest.bind(this));
     this.player.addEventListener('videoWatchRequest', this.videoWatchRequest.bind(this));
     this.player.addEventListener('optionchange', storage.update('player_setting_v2'));
-    this.player.addEventListener('navigate', e => this.stateChange('videoInfo', e.detail));
+    this.player.addEventListener('navigate', e => this.stateChange(['web', 'videoInfo'], e.detail));
     this.player.addEventListener('initHTML5Video', this.initHTML5Video.bind(this));
 
     var observer = new MutationObserver(mutations => mutations.forEach(mutation => {
@@ -316,8 +317,12 @@ class Nicofinder {
     }
   }
 
-  stateChange(name, value) {
-    this[name] = value;
+  stateChange(pathArray, value) {
+    const path = pathArray.join('.');
+
+    if (getIn(this, path) !== undefined) {
+      setIn(this, path, value);
+    }
   }
 
   isForceEconomy() {
@@ -329,7 +334,7 @@ class Nicofinder {
   }
 
   initHTML5Video() {
-    this.web.video = this.player.querySelector('#html5-video');
+    this.video = this.player.querySelector('#html5-video');
 
     // 匿名投稿オプションを表示
     $(this.player).find('#comment_anonymity_post')
@@ -363,12 +368,12 @@ class Nicofinder {
 
     // コメント投稿イベント
     $(this.player).find('.player-comment-send').on('click', () => {
-      if(this.web.video === null) return;
+      if(this.video === null) return;
 
       Nico.player.comment.check(
         $('.player-comment-input').val(),
         $('.player-command-input').val(),
-        this.web.video.currentTime
+        this.video.currentTime
       );
     });
   }
@@ -412,6 +417,8 @@ class NicofinderStorage {
 
 var storage = new NicofinderStorage();
 var nicofinder = new Nicofinder();
+
+console.log(nicofinder);
 
 // ↓ 古いやつ
 

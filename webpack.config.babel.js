@@ -2,10 +2,9 @@ import webpack from 'webpack';
 import ExtractTextPlugin from 'extract-text-webpack-plugin';
 import HtmlWebpackPlugin from 'html-webpack-plugin';
 
-process.env.NODE_ENV = process.argv.includes('-p') ? 'production' : 'development';
-
-const isDev = process.env.NODE_ENV !== 'production';
-const isProd = process.env.NODE_ENV === 'production';
+const env = process.env.NODE_ENV = process.argv.includes('-p') ? 'production' : 'development';
+const isDev = env === 'development';
+const isProd = env === 'production';
 
 const Entries = {
   vendor: {
@@ -87,7 +86,7 @@ export default {
       minChunks: Infinity
     }),
     new webpack.DefinePlugin({
-      'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV)
+      'process.env.NODE_ENV': JSON.stringify(env)
     }),
     new ExtractTextPlugin('css/[name].css'),
     new webpack.LoaderOptionsPlugin({
@@ -95,9 +94,7 @@ export default {
       debug: isDev,
       options: {
         postcss: webpack => ([
-          require('precss')({
-            addDependencyTo: webpack
-          }),
+          require('precss'),
           require('cssnano')({
            discardComments: {
              removeAll: true
@@ -129,6 +126,10 @@ export default {
                 browsers: 'last 2 Chrome versions'
               }
             }]
+          ],
+          plugins: [
+            'transform-runtime',
+            'transform-class-properties'
           ]
         }
       },
