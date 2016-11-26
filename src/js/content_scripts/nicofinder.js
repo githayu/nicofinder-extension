@@ -3,6 +3,7 @@ import getIn from 'lodash.get';
 import setIn from 'lodash.set';
 import { Utils, DetailURL } from '../utils';
 import NicoAPI from '../nicoApi';
+import CommentPost from '../CommentPost';
 
 class Nicofinder {
   web = {
@@ -188,13 +189,13 @@ class Nicofinder {
 
   async storyboardResponse() {
     const storyboard = await NicoAPI.getStoryboard(this.nicoApi.flvInfo.url).catch(e => {
-      console.warn(e);
-
       this.dispatchPlayerEvent({
         type: 'error',
         data: 'storyboard'
       });
     });
+
+    if (!storyboard) return;
 
     this.dispatchPlayerEvent({
       type: 'storyboard',
@@ -333,49 +334,98 @@ class Nicofinder {
     return this.web.videoInfo.video.channel ? this.web.videoInfo.video.channel_thread : this.web.videoInfo.video.id;
   }
 
+  onCommentPost() {
+    if(!this.video || !this.nicoApi.flvInfo || !this.nicoApi.watchInfo) return;
+
+    const command = document.querySelector('.player-command-input');
+    const comment = document.querySelector('.player-comment-input');
+    const vpos = Math.floor(this.video.currentTime * 100);
+
+    if (!command || !comment) return;
+
+    let request = {
+      command: new Set(command.value.split(' ')),
+      comment: comment.value,
+      vpos: vpos,
+      isAnonymity: storage.player_setting_v2.comment_anonymity_post,
+      isPremium: this.nicoApi.flvInfo.is_premium,
+      userId: this.nicoApi.flvInfo.user_id
+    };
+
+    if (this.nicoApi.isHTML5) {
+      request.userKey = this.nicoApi.watchInfo.context.userkey;
+    }
+
+    new CommentPost(this.nicoApi.watchInfo.thread, request).then(res => {
+
+      storage.push('comment_history', {
+        thread: res.chat.thread,
+        no: res.chat.no,
+        vpos: res.chat.vpos,
+        mail: res.chat.mail,
+        user_id: res.chat.user_id,
+        body: res.chat.content,
+        date: res.chat.date
+      });
+
+      this.dispatchPlayerEvent({
+        type: 'extensionSendLocalMessage',
+        data: res
+      });
+    }).catch(err => {
+      console.log(err);
+    });
+  }
+
   initHTML5Video() {
     this.video = this.player.querySelector('#html5-video');
 
+    const commandPanelElement = document.querySelector('.player-command-panel');
+    const anonymityPostElement = document.getElementById('comment_anonymity_post');
+    const commandInputElements = commandPanelElement.getElementsByTagName('input');
+    const commandInputElement = document.querySelector('.player-command-input');
+    const commentSendElement = document.querySelector('.player-comment-send');
+
     // 匿名投稿オプションを表示
-    $(this.player).find('#comment_anonymity_post')
-      .prop('checked', storage.player_setting_v2.comment_anonymity_post)
-      .parent().removeClass('hide');
+    anonymityPostElement.checked = storage.player_setting_v2.comment_anonymity_post;
+    anonymityPostElement.parentElement.classList.remove('hide');
 
     // コマンド変更イベントの登録
-    $(this.player).find('.player-command-panel input').on('change', e => {
-      var command = Nico.player.command.change(e.target.value);
-      Nico.player.command.output(command);
-    });
+    for (let elem of commandInputElements) {
+      elem.addEventListener('change', e => {
+        const command = Nico.player.command.change(e.target.value);
+        Nico.player.command.output(command);
+      });
+    }
 
     // コマンド入力イベントの登録
-    $(this.player).find('.player-command-input').on('keyup blur', e => {
-      if([8, 32, 46, 37, 38, 39, 40].indexOf(e.which) >= 0) return;
-
-      var command = Nico.player.command.normalization(e.target.value);
-      Nico.player.command.output(command);
-    });
-
-    // コマンドフォーカスイベント
-    $(this.player).find('.player-command-input').on('focus', () => {
-      $('.player-command-panel').addClass('show');
-
-      $(document).click(e2 => {
-        if (!$.contains($('#player').get(0), e2.target)) {
-          $('.player-command-panel').removeClass('show');
+    ['keyup', 'blur'].forEach(type => {
+      commandInputElement.addEventListener(type, e => {
+        if ([8, 32, 46, 37, 38, 39, 40].includes(e.which)) {
+          return;
         }
+
+        var command = Nico.player.command.normalization(e.target.value);
+        Nico.player.command.output(command);
       });
     });
 
-    // コメント投稿イベント
-    $(this.player).find('.player-comment-send').on('click', () => {
-      if(this.video === null) return;
+    // コマンドフォーカスイベント
+    commandInputElement.addEventListener('focus', () => {
+      commandPanelElement.classList.add('show');
 
-      Nico.player.comment.check(
-        $('.player-comment-input').val(),
-        $('.player-command-input').val(),
-        this.video.currentTime
-      );
+      const windowClickEvent = e => {
+        if (!this.player.contains(e.target)) {
+          commandPanelElement.classList.remove('show');
+          window.removeEventListener('click', windowClickEvent);
+        }
+      };
+
+      window.addEventListener('click', windowClickEvent);
     });
+
+    // コメント投稿イベント
+    commentSendElement.addEventListener('click', this.onCommentPost.bind(this));
   }
 };
 
@@ -418,12 +468,9 @@ class NicofinderStorage {
 var storage = new NicofinderStorage();
 var nicofinder = new Nicofinder();
 
-console.log(nicofinder);
-
 // ↓ 古いやつ
 
-var Nico = {},
-    Player = {};
+var Nico = {};
 
 Nico.player = {
   state: {
@@ -647,279 +694,5 @@ Nico.player = {
 
       return commandBase;
     }
-  },
-
-  comment: {
-    check: function(text, mail, vpos) {
-      if(!nicofinder.nicoApi.flvInfo) return;
-
-      mail += ' ncf';
-
-      // コメント末尾の空白文字は消す
-      text = text.replace(/\s+$/, '');
-
-      // コメントがないか、空白文字だけの場合
-      if(!text) {
-        console.warn('コメントがないよ!');
-        return;
-      } else if (/^\s+$/.test(text)) {
-        console.warn('空白文字だけのコメントは投稿できません!');
-        return;
-      }
-
-      // コメント数が1024文字を超える場合
-      if(text.length > 1024) {
-        console.warn('コメント文字数が長過ぎます!');
-        return;
-      } else if (text.length > 75) {
-        console.info('75文字以上のコメントを投稿します');
-      }
-
-      // 匿名設定で184コマンドが無ければコマンド付加
-      if(storage.player_setting_v2.comment_anonymity_post && !/(\s|^)184(\s|$)/.test(mail)) {
-        mail += ' 184';
-      };
-
-      // コメント文字数が75文字を超えて匿名希望なら、強制的に匿名を解除
-      if(text.length > 75 && /(\s|^)184(\s|$)/.test(mail)) {
-        mail = mail.replace(/(\s184|184\s)/g, '');
-        console.info('匿名コマンドの解除を行いました。');
-      }
-
-      // 連続で同じコメントをしていないか
-      if(Nico.player.state.comment.lastSend === text) {
-        console.warn('同じコメントを連続で投稿することはできません!');
-        return;
-      }
-
-      // コマンドの前後に空白があれば削除 & 空白が2文字連続で存在すれば1文字に置換
-      mail = mail.replace(/^\s+|\s+$/g, '').replace(/\s{2,}/, ' ');
-
-      this.post(text, mail, vpos);
-    },
-
-    post: function(text, mail, vpos_sec) {
-      var ticket,
-          postKey,
-          clickRevision,
-          vpos = ~~ (vpos_sec * 100),
-          dfd = $.Deferred();
-
-
-      // 最新コメント数及び投稿チケットの取得
-      Nico.api.requestMessageServer($('<packet>').append($('<thread>').attr({
-        thread: nicofinder.nicoApi.flvInfo.thread_id,
-        version: 20090904,
-        res_from: nicofinder.videoInfo.video.default_res
-      })))
-
-
-      // ポストキーの取得
-      .then(function(xml) {
-
-        // エラーチェック
-        if($(xml).find('thread').attr('resultcode') == 0) {
-
-          var blockNo = ~~ ($(xml).find('thread').attr('last_res') / 100);
-              ticket = $(xml).find('thread').attr('ticket'),
-              clickRevision = $(xml).find('thread').attr('click_revision');
-
-          return Nico.api.flGetRequest('getpostkey', {
-            thread: nicofinder.nicoApi.flvInfo.thread_id,
-            block_no: blockNo,
-            device: 1,
-            version: 1,
-            version_sub: 2
-          }, 'get');
-
-        } else {
-          console.warn('Ticketの取得に失敗したため、投稿処理を中断しました');
-          return dfd.reject();
-        }
-      })
-
-
-      // コメント投稿
-      .then(function(key) {
-        var postkey = Nico.fn.parse_str(key).postkey;
-
-        // ポストキーがあれば
-        if(postkey.length > 0) {
-
-          return Nico.api.requestMessageServer($('<chat>').attr({
-            thread: nicofinder.nicoApi.flvInfo.thread_id,
-            vpos: vpos,
-            mail: mail,
-            ticket: ticket,
-            user_id: nicofinder.nicoApi.flvInfo.user_id,
-            postkey: postkey,
-            premium: nicofinder.nicoApi.flvInfo.is_premium
-          }).html(text));
-        } else {
-          console.warn('PostKeyの取得に失敗したため、投稿処理を中断しました');
-          return dfd.reject();
-        }
-      })
-
-
-      // 投稿コメント確認
-      .then(function(xml) {
-
-        // ステータスチェック
-        if(Nico.player.comment.checkResult(+$(xml).find('chat_result').attr('status'))) {
-
-          return Nico.api.requestMessageServer($('<packet>').append($('<thread>').attr({
-            thread: nicofinder.nicoApi.flvInfo.thread_id,
-            version: 20090904,
-            res_from: $(xml).find('chat_result').attr('no'),
-            scores: 1,
-            nicoru: 1,
-            with_global: 1,
-            click_revision: clickRevision
-          })));
-        } else {
-          return dfd.reject();
-        }
-
-      })
-
-      // 最終処理
-      .then(function(xml) {
-
-        $('.player-comment-form').find('input[type=text]').val('');
-
-        // コメント挿入
-        var chat = xml.querySelector('chat'),
-            counter = xml.querySelector('view_counter'),
-            global = xml.querySelector('global_num_res'),
-
-            result = {
-              video: {
-                id: counter.getAttribute('id'),
-                thread: +global.getAttribute('thread'),
-                view: +counter.getAttribute('video'),
-                mylist: +counter.getAttribute('mylist'),
-                comment: +global.getAttribute('num_res')
-              },
-
-              chat: {
-                thread: +chat.getAttribute('thread'),
-                no: +chat.getAttribute('no'),
-                vpos: +chat.getAttribute('vpos'),
-                date: +chat.getAttribute('date'),
-                anonymity: +chat.getAttribute('anonymity'),
-                user_id: chat.getAttribute('user_id'),
-                content: chat.innerHTML,
-                mail: chat.getAttribute('mail') ? chat.getAttribute('mail').split(' ') : [],
-                score: chat.getAttribute('score') ? +chat.getAttribute('score') : 0,
-                nicoru: chat.getAttribute('nicoru') ? +chat.getAttribute('nicoru') : 0,
-                deleted: chat.getAttribute('deleted') ? +chat.getAttribute('deleted') : 0,
-                fork: chat.getAttribute('fork') ? true : false
-              }
-            };
-
-        nicofinder.dispatchPlayerEvent({
-          type: 'extensionSendLocalMessage',
-          data: result
-        });
-
-        // コメント履歴に記録
-        Nico.player.state.comment.lastSend = text;
-
-        storage.push('comment_history', {
-          thread: result.chat.thread,
-          no: result.chat.no,
-          vpos: result.chat.vpos,
-          mail: result.chat.mail,
-          user_id: result.chat.user_id,
-          body: result.chat.content,
-          date: result.chat.date
-        });
-      });
-    },
-
-    checkResult: function(code) {
-      switch (code) {
-        case 0:  // 投稿成功
-          console.info('投稿に成功しました!');
-          return true;
-
-        case 1:  // 投稿拒否
-          console.warn('投稿が拒否されました');
-          return false;
-
-        case 2:  // スレッドIDが変
-          console.warn('スレッドIDがおかしいようです');
-          return false;
-
-        case 3:  // 投稿チケットが変
-          console.warn('投稿チケットがおかしいようです');
-          return false;
-
-        case 4:  // ポストキーがおかしい
-          console.warn('ポストキーがおかしいようです');
-          return false;
-
-        case 5:  // コメント投稿がブロックされている
-          console.warn('コメント投稿がブロックされています');
-          return false;
-
-        case 6:  // コメントが書き込めない
-          console.warn('コメントが書き込めませんでした');
-          return false;
-
-        case 8:  // コメント数が長すぎる
-          console.warn('コメント文字数が長すぎです');
-          return false;
-
-        default:  // 例外エラー
-          console.warn('例外エラーが発生しました');
-          return false;
-      }
-    }
-  }
-};
-
-
-Nico.api = {
-  flGetRequest: function(name, param, type) {
-    type = type || 'post';
-
-    return $.ajax({
-      url: 'http://flapi.nicovideo.jp/api/'+ name +'/',
-      type: type,
-      dataType: 'text',
-      data: $.param(param)
-    });
-  },
-
-  requestMessageServer: function(xml) {
-
-    var ajax = {
-      url: nicofinder.nicoApi.flvInfo.ms,
-      type: 'post',
-      dataType: 'xml',
-      contentType: 'text/xml',
-      data: $(xml).get(0).outerHTML
-    }
-
-    if (nicofinder.nicoApi.flvInfo.ms == 'http://nmsg.nicovideo.jp/api/') {
-      ajax.contentType = 'application/xml';
-    }
-
-    return $.ajax(ajax);
-  }
-};
-
-
-Nico.fn = {
-  parse_str: function(str) {
-    var arr = str.split('&');
-    var result = {};
-    for(var i = 0; i < arr.length; i++) {
-      var kv = arr[i].split('=');
-      result[kv[0]] = decodeURIComponent(kv[1]);
-    }
-    return result;
   }
 };
