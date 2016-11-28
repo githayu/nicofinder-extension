@@ -14,8 +14,7 @@ export const defaultStorage = {
       redirectList: [
         'watch',
         'mylist'
-      ],
-      webFeatures: false
+      ]
     }
   }
 };

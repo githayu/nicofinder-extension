@@ -7,16 +7,6 @@ export default class Options extends React.Component {
   static defaultProps = {
     options: [
       {
-        type: 'options',
-        title: '設定',
-        class: 'options-section',
-        items: [
-          {
-            name: 'webFeatures',
-            label: '試験運用中の WebPlatform 向け機能を優先する'
-          }
-        ]
-      }, {
         type: 'redirect',
         title: 'リダイレクト設定',
         class: 'redirect-section',
@@ -95,13 +85,6 @@ export default class Options extends React.Component {
     var result = {};
 
     switch (target.name) {
-      case 'webFeatures': {
-        result = {
-          webFeatures: target.checked
-        };
-        break;
-      }
-
       case 'redirectList': {
         let redirectList = Array.from(new Set(this.state.storage.redirectList));
         let index = redirectList.indexOf(target.value);

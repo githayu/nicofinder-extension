@@ -141,22 +141,6 @@ class Background {
         }
       }
 
-      if (detailURL.isNicofinder) {
-        if (this.store.webFeatures && contentDir === 'search') {
-          let url = new URL(details.url);
-          let query = decodeURIComponent(url.pathname.split('/').pop());
-
-          url.pathname = '/next-search/';
-          url.searchParams.append('query', query);
-
-          redirectRequest = Object.assign({}, redirectRequest, {
-            isRedirect: true,
-            redirectUrl: url.href,
-            detailURL: detailURL
-          });
-        }
-      }
-
       this.redirectMap.set(details.requestId, redirectRequest);
     }
   }
