@@ -25,10 +25,11 @@ export class ValidateComment {
 
 
 export class ValidateCommand {
-  constructor(req) {
-    this.comment = req.comment;
-    this.command = req.command;
-    this.isAnonymity = req.isAnonymity;
+  constructor(command, comment, isAnonymity, isNeedsKey) {
+    this.command = command;
+    this.comment = comment;
+    this.isAnonymity = isAnonymity;
+    this.isNeedsKey = isNeedsKey;
   }
 
   execute() {
@@ -46,8 +47,14 @@ export class ValidateCommand {
   }
 
   tryRemove184() {
-    // 匿名希望かつ、コメント数が75文字を超える
-    if (this.comment.length > 75 && this.command.has('184')) {
+    const isRemove = [
+      // 匿名希望かつ、コメント数が75文字を超える
+      this.comment.length > 75 && this.command.has('184') ||
+      // スレッドキーが必要な動画
+      this.isNeedsKey
+    ];
+
+    if (isRemove) {
       this.command.delete('184');
     }
   }

@@ -3,7 +3,7 @@ import getIn from 'lodash.get';
 import setIn from 'lodash.set';
 import { Utils, DetailURL } from '../utils';
 import NicoAPI from '../nicoApi';
-import CommentPost from '../CommentPost';
+import CommentPost from '../commentPost';
 
 class Nicofinder {
   web = {
@@ -25,6 +25,21 @@ class Nicofinder {
 
   constructor() {
     document.addEventListener('DOMContentLoaded', this.domContentLoaded.bind(this));
+  }
+
+  onNavigateEvent = e => {
+    e => this.stateChange(['web', 'videoInfo'], e.detail)
+    setIn(this, 'web.videoInfo', e.detail);
+  }
+
+  get isForceEconomy() {
+    return this.web.videoInfo.video.movie_type === 'flv' ? 1 : 0;
+  }
+
+  get getMainVideoId() {
+    return this.web.videoInfo.video.channel
+      ? this.web.videoInfo.video.channel_thread
+      : this.web.videoInfo.video.id;
   }
 
   domContentLoaded() {
@@ -56,7 +71,7 @@ class Nicofinder {
     this.player.addEventListener('videoQualityChangeRequest', this.videoQualityChangeRequest.bind(this));
     this.player.addEventListener('videoWatchRequest', this.videoWatchRequest.bind(this));
     this.player.addEventListener('optionchange', storage.update('player_setting_v2'));
-    this.player.addEventListener('navigate', e => this.stateChange(['web', 'videoInfo'], e.detail));
+    this.player.addEventListener('navigate', this.onNavigateEvent);
     this.player.addEventListener('initHTML5Video', this.initHTML5Video.bind(this));
 
     var observer = new MutationObserver(mutations => mutations.forEach(mutation => {
@@ -110,9 +125,9 @@ class Nicofinder {
   }
 
   async fetchWatchInfo(economy) {
-    const watchPage = await NicoAPI.getNicoHistory(this.getMainVideoId(), {
+    const watchPage = await NicoAPI.getNicoHistory(this.getMainVideoId, {
       watch_harmful: 1,
-      eco: economy || this.isForceEconomy()
+      eco: economy || this.isForceEconomy
     });
 
     const parser = new DOMParser();
@@ -132,8 +147,8 @@ class Nicofinder {
   }
 
   async videoWatchRequest() {
-    const forceEconomy = this.isForceEconomy();
-    const mainVideoId = this.getMainVideoId();
+    const forceEconomy = this.isForceEconomy;
+    const mainVideoId = this.getMainVideoId;
 
     this.nicoApi.flvInfo = await NicoAPI.getflv({
       v: mainVideoId,
@@ -318,23 +333,7 @@ class Nicofinder {
     }
   }
 
-  stateChange(pathArray, value) {
-    const path = pathArray.join('.');
-
-    if (getIn(this, path) !== undefined) {
-      setIn(this, path, value);
-    }
-  }
-
-  isForceEconomy() {
-    return this.web.videoInfo.video.movie_type === 'flv' ? 1 : 0;
-  }
-
-  getMainVideoId() {
-    return this.web.videoInfo.video.channel ? this.web.videoInfo.video.channel_thread : this.web.videoInfo.video.id;
-  }
-
-  onCommentPost() {
+  onPostComment() {
     if(!this.video || !this.nicoApi.flvInfo || !this.nicoApi.watchInfo) return;
 
     const command = document.querySelector('.player-command-input');
@@ -344,19 +343,26 @@ class Nicofinder {
     if (!command || !comment) return;
 
     let request = {
+      threadId: this.nicoApi.flvInfo.thread_id,
+      serverUrl: this.nicoApi.flvInfo.ms,
       command: new Set(command.value.split(' ')),
       comment: comment.value,
       vpos: vpos,
       isAnonymity: storage.player_setting_v2.comment_anonymity_post,
       isPremium: this.nicoApi.flvInfo.is_premium,
+      isNeedsKey: Boolean(this.nicoApi.flvInfo.needs_key),
       userId: this.nicoApi.flvInfo.user_id
     };
 
     if (this.nicoApi.isHTML5) {
-      request.userKey = this.nicoApi.watchInfo.context.userkey;
+      request = Object.assign({}, request, {
+        userKey: this.nicoApi.watchInfo.context.userkey
+      });
+    } else {
+
     }
 
-    new CommentPost(this.nicoApi.watchInfo.thread, request).then(res => {
+    new CommentPost(request).then(res => {
 
       storage.push('comment_history', {
         thread: res.chat.thread,
@@ -425,7 +431,7 @@ class Nicofinder {
     });
 
     // コメント投稿イベント
-    commentSendElement.addEventListener('click', this.onCommentPost.bind(this));
+    commentSendElement.addEventListener('click', this.onPostComment.bind(this));
   }
 };
 
