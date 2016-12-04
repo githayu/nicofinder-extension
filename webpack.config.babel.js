@@ -24,12 +24,12 @@ const Entries = {
     path: './src/js/options'
   },
   contentNicofinder: {
-    name: 'content_scripts/nicofinder',
-    path: './src/js/content_scripts/nicofinder'
+    name: 'content-scripts/nicofinder',
+    path: './src/js/content-scripts/nicofinder'
   },
   contentProvider: {
-    name: 'content_scripts/extension-provider',
-    path: './src/js/content_scripts/extension-provider'
+    name: 'content-scripts/extension-provider',
+    path: './src/js/content-scripts/extension-provider'
   }
 };
 

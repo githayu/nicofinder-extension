@@ -76,7 +76,7 @@ class Background {
       contexts: ['link'],
       targetUrlPatterns: ['http://www.nicovideo.jp/watch/*'],
       onclick: info => {
-        const detailURL = new DetailURL(info,linkUrl);
+        const detailURL = new DetailURL(info.linkUrl);
 
         if (detailURL.isNiconico && detailURL.hasDir('watch')) {
           chrome.tabs.create({

@@ -1,11 +1,11 @@
 import getIn from 'lodash.get';
-import { Utils } from './utils.js';
+import { Utils } from '../utils.js';
 
 import {
   ValidateComment,
   ValidateCommand,
   validateThreadResult
-} from './chatValidate';
+} from './validate-chat';
 
 export default class CommentPost {
   static threadKeyUrl = 'http://flapi.nicovideo.jp/api/getthreadkey';
@@ -102,8 +102,6 @@ export default class CommentPost {
   }
 
   createDispatchRequest(postedChat, postedPacket) {
-    document.querySelector('.player-comment-input').value = '';
-
     const thread = postedPacket.thread[0];
 
     const request = {
@@ -132,16 +130,8 @@ export default class CommentPost {
   }
 
   requestValidation() {
-    const commentValidation = new ValidateComment(
-      this.request.comment
-    );
-
-    const commandValidation = new ValidateCommand(
-      this.request.command,
-      this.request.comment,
-      this.request.isAnonymity,
-      this.request.isNeedsKey
-    );
+    const commentValidation = new ValidateComment(this.request);
+    const commandValidation = new ValidateCommand(this.request);
 
     this.latest.comment = commentValidation.execute();
     this.latest.command = commandValidation.execute();

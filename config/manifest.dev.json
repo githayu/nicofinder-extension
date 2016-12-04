@@ -7,8 +7,8 @@
       ],
       "js": [
         "js/vendor.js",
-        "js/content_scripts/extension-provider.js",
-        "js/content_scripts/nicofinder.js"
+        "js/content-scripts/extension-provider.js",
+        "js/content-scripts/nicofinder.js"
       ],
       "run_at": "document_start",
       "all_frames": true
