@@ -1,5 +1,6 @@
 import getIn from 'lodash.get';
 import setIn from 'lodash.set';
+import Cookies from 'js-cookie';
 import { Utils, DetailURL } from '../utils';
 import NicoAPI from '../nicoApi';
 import CommentPost from '../niconico/post-chat';
@@ -25,14 +26,8 @@ class Nicofinder {
   storage = null;
 
   constructor() {
-    document.addEventListener('DOMContentLoaded', this.domContentLoaded.bind(this));
-
     this.storage = new NicofinderStorage();
-  }
-
-  onNavigateEvent = e => {
-    e => this.stateChange(['web', 'videoInfo'], e.detail)
-    setIn(this, 'web.videoInfo', e.detail);
+    document.addEventListener('DOMContentLoaded', this.domContentLoaded.bind(this));
   }
 
   get isForceEconomy() {
@@ -43,6 +38,16 @@ class Nicofinder {
     return this.web.videoInfo.video.channel
       ? this.web.videoInfo.video.channel_thread
       : this.web.videoInfo.video.id;
+  }
+
+  get getDmcInfo() {
+    if (this.nicoApi.isHTML5 && getIn(this, 'nicoApi.watchInfo.video.dmcInfo')) {
+      return this.nicoApi.watchInfo.video.dmcInfo;
+    } else if (getIn(this, 'nicoApi.watchInfo.flashvars.dmcInfo')) {
+      return JSON.parse(decodeURIComponent(this.nicoApi.watchInfo.flashvars.dmcInfo));
+    } else {
+      return null;
+    }
   }
 
   domContentLoaded() {
@@ -69,12 +74,12 @@ class Nicofinder {
 
   initialize() {
     this.player = document.getElementById('player');
-    this.player.addEventListener('reAuthRequest', this.getNicohistoryRequest.bind(this));
-    this.player.addEventListener('changeQuality', this.changeQuality.bind(this));
-    this.player.addEventListener('videoWatchRequest', this.videoWatchRequest.bind(this));
+    this.player.addEventListener('reAuthRequest', this.getNicohistoryRequest);
+    this.player.addEventListener('changeQuality', this.changeQuality);
+    this.player.addEventListener('videoWatchRequest', this.videoWatchRequest);
     this.player.addEventListener('optionchange', this.changePlayerSettings);
     this.player.addEventListener('navigate', this.onNavigateEvent);
-    this.player.addEventListener('initHTML5Video', this.initHTML5Video.bind(this));
+    this.player.addEventListener('initHTML5Video', this.initHTML5Video);
     this.player.addEventListener('postChatRequest', this.postChatRequest);
 
     var observer = new MutationObserver(mutations => mutations.forEach(mutation => {
@@ -98,26 +103,13 @@ class Nicofinder {
     this.receiver.value = JSON.stringify(data);
   }
 
-  async getNicohistoryRequest() {
-    await this.fetchWatchAPI().catch(e => {
-      this.dispatchPlayerEvent({
-        type: 'error',
-        data: e
-      });
-    });
-
-    this.dispatchPlayerEvent({
-      type: 'reFetchNicohistory'
-    });
-  }
-
-  get getDmcInfo() {
-    if (this.nicoApi.isHTML5 && getIn(this, 'nicoApi.watchInfo.video.dmcInfo')) {
-      return this.nicoApi.watchInfo.video.dmcInfo;
-    } else if (getIn(this, 'nicoApi.watchInfo.flashvars.dmcInfo')) {
-      return JSON.parse(decodeURIComponent(this.nicoApi.watchInfo.flashvars.dmcInfo));
+  setLoginClass() {
+    if (this.nicoApi.flvInfo.closed === 1) {
+      this.player.classList.remove('login');
+      this.player.classList.add('logout');
     } else {
-      return null;
+      this.player.classList.remove('logout');
+      this.player.classList.add('login');
     }
   }
 
@@ -140,33 +132,6 @@ class Nicofinder {
       this.nicoApi.watchInfo = JSON.parse(nicoWatchInfoElement.innerText);
     } else {
       Promise.reject(new Error('watchAPI not found!'));
-    }
-  }
-
-  async videoWatchRequest() {
-    const forceEconomy = this.isForceEconomy;
-    const mainVideoId = this.getMainVideoId;
-
-    this.nicoApi.flvInfo = await NicoAPI.getflv({
-      v: mainVideoId,
-      eco: forceEconomy
-    });
-
-    if (getIn(this, 'nicoApi.flvInfo.closed')) {
-      this.dispatchPlayerEvent({
-        type: 'getflv',
-        data: this.nicoApi.flvInfo
-      });
-    } else {
-      this.setLoginClass();
-
-      await this.fetchWatchAPI();
-
-      this.videoWatchResponse();
-
-      if (this.nicoApi.flvInfo.is_premium) {
-        this.storyboardResponse();
-      }
     }
   }
 
@@ -209,7 +174,138 @@ class Nicofinder {
     });
   }
 
-  async changeQuality(e) {
+  changePlayerSettings = () => {
+    this.storage.update('player_setting_v2');
+  }
+
+  onNavigateEvent = (e) => {
+    setIn(this, 'web.videoInfo', e.detail);
+  }
+
+  postChatRequest = (e) => {
+    const vpos = Math.floor(this.video.currentTime * 100);
+
+    const lastPostChat = this.storage.comment_history
+      ? this.storage.comment_history[this.storage.comment_history.length - 1]
+      : null;
+
+    let request = {
+      threadId: this.nicoApi.flvInfo.thread_id,
+      serverUrl: this.nicoApi.flvInfo.ms,
+      command: new Set(e.detail.command.split(' ')),
+      comment: e.detail.comment,
+      vpos: vpos,
+      isAnonymity: e.detail.isAnonymity,
+      isPremium: this.nicoApi.flvInfo.is_premium,
+      isNeedsKey: Boolean(this.nicoApi.flvInfo.needs_key),
+      isAllowContinuousPosts: this.storage.player_setting_v2.allow_continuous_posts,
+      userId: this.nicoApi.flvInfo.user_id,
+      lastPostChat: lastPostChat
+    };
+
+    if (this.nicoApi.isHTML5) {
+      request = Object.assign({}, request, {
+        userKey: this.nicoApi.watchInfo.context.userkey
+      });
+    }
+
+    new CommentPost(request).then(res => {
+
+      this.storage.push('comment_history', {
+        thread: res.chat.thread,
+        no: res.chat.no,
+        vpos: res.chat.vpos,
+        mail: res.chat.mail,
+        user_id: this.nicoApi.flvInfo.user_id,
+        body: res.chat.content,
+        date: res.chat.date
+      });
+
+      this.dispatchPlayerEvent({
+        type: 'extensionSendLocalMessage',
+        data: res
+      });
+    });
+  }
+
+  initHTML5Video = () => {
+    this.video = this.player.querySelector('#html5-video');
+
+    const anonymityPostElement = document.getElementById('comment_anonymity_post');
+
+    // 匿名投稿オプションを表示
+    if (getIn(this, 'storage.player_setting_v2.comment_anonymity_post')) {
+      anonymityPostElement.checked = this.storage.player_setting_v2.comment_anonymity_post;
+      anonymityPostElement.parentElement.classList.remove('hide');
+    }
+
+    // v2.0.* のページはコメント投稿を無効にする
+    if (this.web.watchInfo.version.startsWith('2.0.')) {
+      const commentAlert = document.querySelector('.player-comment-alert');
+
+      if (commentAlert) {
+        const message = document.createElement('a');
+
+        message.href = '#';
+        message.innerText = 'コメント投稿はこちらのページから行なえます';
+        message.addEventListener('click', e => {
+          e.preventDefault();
+
+          Cookies.set('nicofinder-future', 1, {
+            domain: 'nicofinder.net'
+          });
+
+          location.reload();
+        });
+
+        commentAlert.innerHTML = '';
+        commentAlert.appendChild(message);
+        commentAlert.style.display = 'block';
+      }
+    }
+  }
+
+  getNicohistoryRequest = async () => {
+    await this.fetchWatchAPI().catch(e => {
+      this.dispatchPlayerEvent({
+        type: 'error',
+        data: e
+      });
+    });
+
+    this.dispatchPlayerEvent({
+      type: 'reFetchNicohistory'
+    });
+  }
+
+  videoWatchRequest = async () => {
+    const forceEconomy = this.isForceEconomy;
+    const mainVideoId = this.getMainVideoId;
+
+    this.nicoApi.flvInfo = await NicoAPI.getflv({
+      v: mainVideoId,
+      eco: forceEconomy
+    });
+
+    if (getIn(this, 'nicoApi.flvInfo.closed')) {
+      this.dispatchPlayerEvent({
+        type: 'getflv',
+        data: this.nicoApi.flvInfo
+      });
+    } else {
+      this.setLoginClass();
+
+      await this.fetchWatchAPI();
+
+      this.videoWatchResponse();
+
+      if (this.nicoApi.flvInfo.is_premium) {
+        this.storyboardResponse();
+      }
+    }
+  }
+
+  changeQuality = async (e) => {
     const request = e.detail;
 
     let result = {};
@@ -259,76 +355,6 @@ class Nicofinder {
       type: 'completeDmcQuality',
       data: result
     });
-  }
-
-  setLoginClass() {
-    if (this.nicoApi.flvInfo.closed === 1) {
-      this.player.classList.remove('login');
-      this.player.classList.add('logout');
-    } else {
-      this.player.classList.remove('logout');
-      this.player.classList.add('login');
-    }
-  }
-
-  changePlayerSettings = () => {
-    this.storage.update('player_setting_v2');
-  }
-
-  postChatRequest = e => {
-    const vpos = Math.floor(this.video.currentTime * 100);
-
-    const lastPostChat = this.storage.comment_history
-      ? this.storage.comment_history[this.storage.comment_history.length - 1]
-      : null;
-
-    let request = {
-      threadId: this.nicoApi.flvInfo.thread_id,
-      serverUrl: this.nicoApi.flvInfo.ms,
-      command: new Set(e.detail.command.split(' ')),
-      comment: e.detail.comment,
-      vpos: vpos,
-      isAnonymity: e.detail.isAnonymity,
-      isPremium: this.nicoApi.flvInfo.is_premium,
-      isNeedsKey: Boolean(this.nicoApi.flvInfo.needs_key),
-      isAllowContinuousPosts: this.storage.player_setting_v2.allow_continuous_posts,
-      userId: this.nicoApi.flvInfo.user_id,
-      lastPostChat: lastPostChat
-    };
-
-    if (this.nicoApi.isHTML5) {
-      request = Object.assign({}, request, {
-        userKey: this.nicoApi.watchInfo.context.userkey
-      });
-    }
-
-    new CommentPost(request).then(res => {
-
-      this.storage.push('comment_history', {
-        thread: res.chat.thread,
-        no: res.chat.no,
-        vpos: res.chat.vpos,
-        mail: res.chat.mail,
-        user_id: this.nicoApi.flvInfo.user_id,
-        body: res.chat.content,
-        date: res.chat.date
-      });
-
-      this.dispatchPlayerEvent({
-        type: 'extensionSendLocalMessage',
-        data: res
-      });
-    });
-  }
-
-  initHTML5Video() {
-    this.video = this.player.querySelector('#html5-video');
-
-    const anonymityPostElement = document.getElementById('comment_anonymity_post');
-
-    // 匿名投稿オプションを表示
-    anonymityPostElement.checked = this.storage.player_setting_v2.comment_anonymity_post;
-    anonymityPostElement.parentElement.classList.remove('hide');
   }
 };
 
