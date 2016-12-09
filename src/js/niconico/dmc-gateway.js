@@ -11,21 +11,6 @@ export default class DMCGateway {
     return new URL(`${this.getEndpointURL}/${this.session.id}`);
   }
 
-  async changeQuality(request) {
-    const defaultRequest = {
-      audios: this.dmcInfo.audios,
-      videos: this.dmcInfo.videos
-    };
-
-    await this.deleteSession();
-
-    await this.startSession(
-      Object.assign({}, defaultRequest, request)
-    );
-
-    return Promise.resolve(this.session);
-  }
-
   async startSession(request = {}) {
     await this.postSession(request);
 

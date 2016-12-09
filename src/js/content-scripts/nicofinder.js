@@ -2,7 +2,7 @@ import getIn from 'lodash.get';
 import setIn from 'lodash.set';
 import Cookies from 'js-cookie';
 import { Utils, DetailURL } from '../utils';
-import NicoAPI from '../nicoApi';
+import { fetchWatchAPI, fetchWatchHTML, fetchStoryboard, fetchFlvInfo } from '../niconico/api';
 import CommentPost from '../niconico/post-chat';
 import DMCGateway from '../niconico/dmc-gateway';
 import NicofinderStorage from '../nicofinder/localstorage';
@@ -15,42 +15,26 @@ class Nicofinder {
 
   nicoApi = {
     flvInfo: null,
-    watchInfo: null,
-    dmcSessionXML: null,
-    isHTML5: false
+    watchInfo: null
   };
 
   player = null;
   video = null;
   receiver = null;
   storage = null;
+  dmcGateway = null;
 
   constructor() {
     this.storage = new NicofinderStorage();
-    document.addEventListener('DOMContentLoaded', this.domContentLoaded.bind(this));
+
+    document.addEventListener('DOMContentLoaded', this.domContentLoaded);
+
+    chrome.runtime.sendMessage({
+      type: 'isHTML5NicoVideo'
+    }, (res) => this.isHTML5 = res);
   }
 
-  get isForceEconomy() {
-    return this.web.videoInfo.video.movie_type === 'flv' ? 1 : 0;
-  }
-
-  get getMainVideoId() {
-    return this.web.videoInfo.video.channel
-      ? this.web.videoInfo.video.channel_thread
-      : this.web.videoInfo.video.id;
-  }
-
-  get getDmcInfo() {
-    if (this.nicoApi.isHTML5 && getIn(this, 'nicoApi.watchInfo.video.dmcInfo')) {
-      return this.nicoApi.watchInfo.video.dmcInfo;
-    } else if (getIn(this, 'nicoApi.watchInfo.flashvars.dmcInfo')) {
-      return JSON.parse(decodeURIComponent(this.nicoApi.watchInfo.flashvars.dmcInfo));
-    } else {
-      return null;
-    }
-  }
-
-  domContentLoaded() {
+  domContentLoaded = () => {
     const detailURL = new DetailURL(location.href);
 
     if (detailURL.isNicofinder && !detailURL.hasDir('watch', 'player')) {
@@ -66,72 +50,47 @@ class Nicofinder {
     this.web.watchInfo = JSON.parse(watchInfoElement.innerHTML);
 
     if (this.web.watchInfo.version.startsWith('2.')) {
-      this.initialize();
-    } else {
-      return false;
-    }
-  }
+      this.player = document.getElementById('player');
 
-  initialize() {
-    this.player = document.getElementById('player');
-    this.player.addEventListener('reAuthRequest', this.getNicohistoryRequest);
-    this.player.addEventListener('changeQuality', this.changeQuality);
-    this.player.addEventListener('videoWatchRequest', this.videoWatchRequest);
-    this.player.addEventListener('optionchange', this.changePlayerSettings);
-    this.player.addEventListener('navigate', this.onNavigateEvent);
-    this.player.addEventListener('initHTML5Video', this.initHTML5Video);
-    this.player.addEventListener('postChatRequest', this.postChatRequest);
+      this.player.addEventListener('reAuthRequest', this.fetchNicohistoryRequest);
+      this.player.addEventListener('changeQuality', this.changeQuality);
+      this.player.addEventListener('videoWatchRequest', this.videoWatchRequest);
+      this.player.addEventListener('optionchange', this.changePlayerSettings);
+      this.player.addEventListener('navigate', this.onNavigateEvent);
+      this.player.addEventListener('initHTML5Video', this.initHTML5Video);
+      this.player.addEventListener('postChatRequest', this.postChatRequest);
 
-    var observer = new MutationObserver(mutations => mutations.forEach(mutation => {
-      for (let item of mutation.addedNodes) {
-        if (item.nodeType === 1 && item.classList.contains('extension-receiver')) {
-          this.receiver = item;
-          observer.disconnect();
-          break;
+      var observer = new MutationObserver(mutations => mutations.forEach(mutation => {
+        for (let item of mutation.addedNodes) {
+          if (item.nodeType === 1 && item.classList.contains('extension-receiver')) {
+            this.receiver = item;
+            observer.disconnect();
+            break;
+          }
         }
-      }
-    }));
+      }));
 
-    observer.observe(this.player, {
-      childList: true
-    });
-  }
-
-  dispatchPlayerEvent(data) {
-    if (!this.receiver) return;
-
-    this.receiver.value = JSON.stringify(data);
-  }
-
-  setLoginClass() {
-    if (this.nicoApi.flvInfo.closed === 1) {
-      this.player.classList.remove('login');
-      this.player.classList.add('logout');
-    } else {
-      this.player.classList.remove('logout');
-      this.player.classList.add('login');
+      observer.observe(this.player, {
+        childList: true
+      });
     }
   }
 
-  async fetchWatchAPI(economy) {
-    const watchPage = await NicoAPI.getNicoHistory(this.getMainVideoId, {
-      watch_harmful: 1,
-      eco: economy || this.isForceEconomy
+  async fetchWatchEmbeddedAPI(isEconomy) {
+    const watchDocument = await fetchWatchHTML({
+      watchId: this.getWatchId,
+      isEconomy: isEconomy
     });
 
-    const parser = new DOMParser();
-    const watchDocument = parser.parseFromString(watchPage, 'text/html');
-    const nicoWatchInfoElement = watchDocument.getElementById('watchAPIDataContainer');
-    const initialWatchDataElement = watchDocument.getElementById('js-initial-watch-data');
+    if (this.isHTML5) {
+      const embeddedAPI = watchDocument.getElementById('js-initial-watch-data');
 
-    if (initialWatchDataElement) {
-      this.nicoApi.isHTML5 = true;
-      this.nicoApi.watchInfo = JSON.parse(initialWatchDataElement.dataset.apiData);
-    } else if (nicoWatchInfoElement) {
-      this.nicoApi.isHTML5 = false;
-      this.nicoApi.watchInfo = JSON.parse(nicoWatchInfoElement.innerText);
+      this.nicoApi.watchInfo = JSON.parse(embeddedAPI.dataset.apiData);
+      this.nicoApi.watchEnv = JSON.parse(embeddedAPI.dataset.environment);
     } else {
-      Promise.reject(new Error('watchAPI not found!'));
+      const embeddedAPI = watchDocument.getElementById('watchAPIDataContainer');
+
+      this.nicoApi.watchInfo = JSON.parse(embeddedAPI.innerText);
     }
   }
 
@@ -158,8 +117,8 @@ class Nicofinder {
     });
   }
 
-  async storyboardResponse() {
-    const storyboard = await NicoAPI.getStoryboard(this.nicoApi.flvInfo.url).catch(e => {
+  async fetchStoryboard() {
+    const storyboard = await fetchStoryboard(this.getVideoSource).catch(err => {
       this.dispatchPlayerEvent({
         type: 'error',
         data: 'storyboard'
@@ -172,6 +131,12 @@ class Nicofinder {
       type: 'storyboard',
       data: storyboard
     });
+  }
+
+  dispatchPlayerEvent(data) {
+    if (!this.receiver) return;
+
+    this.receiver.value = JSON.stringify(data);
   }
 
   changePlayerSettings = () => {
@@ -203,7 +168,7 @@ class Nicofinder {
       lastPostChat: lastPostChat
     };
 
-    if (this.nicoApi.isHTML5) {
+    if (this.isHTML5) {
       request = Object.assign({}, request, {
         userKey: this.nicoApi.watchInfo.context.userkey
       });
@@ -246,7 +211,7 @@ class Nicofinder {
       if (commentAlert) {
         const message = document.createElement('a');
 
-        message.href = '#';
+        message.href = location.href;
         message.innerText = 'コメント投稿はこちらのページから行なえます';
         message.addEventListener('click', e => {
           e.preventDefault();
@@ -265,8 +230,11 @@ class Nicofinder {
     }
   }
 
-  getNicohistoryRequest = async () => {
-    await this.fetchWatchAPI().catch(e => {
+  fetchNicohistoryRequest = async () => {
+    await fetchWatchAPI({
+      watchId: this.getWatchId,
+      playlistToken: this.getPlaylistToken
+    }).catch(e => {
       this.dispatchPlayerEvent({
         type: 'error',
         data: e
@@ -279,12 +247,9 @@ class Nicofinder {
   }
 
   videoWatchRequest = async () => {
-    const forceEconomy = this.isForceEconomy;
-    const mainVideoId = this.getMainVideoId;
-
-    this.nicoApi.flvInfo = await NicoAPI.getflv({
-      v: mainVideoId,
-      eco: forceEconomy
+    this.nicoApi.flvInfo = await fetchFlvInfo({
+      v: this.getWatchId,
+      eco: this.isForceEconomy
     });
 
     if (getIn(this, 'nicoApi.flvInfo.closed')) {
@@ -293,14 +258,12 @@ class Nicofinder {
         data: this.nicoApi.flvInfo
       });
     } else {
-      this.setLoginClass();
-
-      await this.fetchWatchAPI();
+      await this.fetchWatchEmbeddedAPI();
 
       this.videoWatchResponse();
 
       if (this.nicoApi.flvInfo.is_premium) {
-        this.storyboardResponse();
+        this.fetchStoryboard();
       }
     }
   }
@@ -320,7 +283,11 @@ class Nicofinder {
           this.dmcGateway = null;
         }
 
-        await this.fetchWatchAPI(isEconomy);
+        this.nicoApi.watchInfo = await fetchWatchAPI({
+          watchId: this.getWatchId,
+          playlistToken: this.getPlaylistToken,
+          isEconomy: isEconomy
+        });
 
         result = Object.assign({}, result, {
           type: 'smile',
@@ -335,12 +302,17 @@ class Nicofinder {
       default: {
         let session;
 
-        if (this.dmcGateway === null) {
-          this.dmcGateway = new DMCGateway(this.getDmcInfo.session_api);
-          session = await this.dmcGateway.startSession(request.payload);
-        } else {
-          session = await this.dmcGateway.changeQuality(request.payload);
+        if (this.dmcGateway) {
+          await this.dmcGateway.deleteSession();
         }
+
+        this.nicoApi.watchInfo = await fetchWatchAPI({
+          watchId: this.getWatchId,
+          playlistToken: this.getPlaylistToken
+        });
+
+        this.dmcGateway = new DMCGateway(this.getDmcInfo.session_api);
+        session = await this.dmcGateway.startSession(request.payload);
 
         result = Object.assign({}, result, {
           type: 'dmc',
@@ -355,6 +327,52 @@ class Nicofinder {
       type: 'completeDmcQuality',
       data: result
     });
+  }
+
+  get isForceEconomy() {
+    return this.web.videoInfo.video.movie_type === 'flv' ? 1 : 0;
+  }
+
+  get getWatchId() {
+    if (getIn(this, 'nicoApi.watchInfo.context.watchId')) {
+      return this.nicoApi.watchInfo.context.watchId;
+    } else if (getIn(this, 'nicoApi.watchInfo.videoDetail.v')) {
+      return this.nicoApi.watchInfo.videoDetail.v;
+    } else {
+      return this.web.videoInfo.video.channel
+           ? this.web.videoInfo.video.channel_thread
+           : this.web.videoInfo.video.id;
+    }
+  }
+
+  get getVideoSource() {
+    if (getIn(this, 'nicoApi.watchInfo.video.source')) {
+      return this.nicoApi.watchInfo.video.source;
+    } else if (getIn(this, 'nicoApi.watchInfo.flvInfo.url')) {
+      return this.nicoApi.watchInfo.flvInfo.url;
+    } else {
+      return null;
+    }
+  }
+
+  get getDmcInfo() {
+    if (getIn(this, 'nicoApi.watchInfo.video.dmcInfo')) {
+      return this.nicoApi.watchInfo.video.dmcInfo;
+    } else if (getIn(this, 'nicoApi.watchInfo.flashvars.dmcInfo')) {
+      return JSON.parse(decodeURIComponent(this.nicoApi.watchInfo.flashvars.dmcInfo));
+    } else {
+      return null;
+    }
+  }
+
+  get getPlaylistToken() {
+    if (getIn(this, 'nicoApi.watchEnv.playlistToken')) {
+      return this.nicoApi.watchEnv.playlistToken;
+    } else if (getIn(this, 'nicoApi.watchInfo.playlistToken')) {
+      return this.nicoApi.watchInfo.playlistToken;
+    } else {
+      return null;
+    }
   }
 };
 

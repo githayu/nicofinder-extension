@@ -62,110 +62,35 @@ export class Utils {
     return /^(?!0)\d+$/.test(string);
   }
 
-  static decodeURLParams(str) {
-    var result = {};
+  static decodeURLParams(paramsString) {
+    const searchParams = new URLSearchParams(paramsString);
 
-    (str.startsWith('?') ? str.slice(1) : str).split('&').forEach(query => {
-      var [key, value] = query.split('=');
-      result[key] = this.isDecimalNumber(value) ? Number(value) : decodeURIComponent(value);
-    });
+    const resultParams = Array.from(searchParams).reduce((result, [key, value]) => {
+      result[key] = this.isDecimalNumber(value) ? Number(value) : value;
+      return result;
+    }, {});
 
-    return result;
+    return resultParams;
   }
 
-  static fetch(options) {
-    var url = new URL(options.url);
+  static async fetch(options) {
+    const url = new URL(options.url);
 
-    if ('qs' in options) {
-      Object.entries(options.qs).forEach(([name, value]) => url.searchParams.append(name, value));
+    if (options.hasOwnProperty('qs')) {
+      Object.entries(options.qs).forEach(([name, value]) =>
+        url.searchParams.append(name, value)
+      );
     }
 
-    return fetch(url, options.request)
-    .then(res => {
-      if (res.status !== 200) return Promise.reject(res);
+    const request = new Request(url, options.request);
+    const response = await fetch(request);
 
-      return res[options.type]();
-    }).catch(data => {
-      return Promise.reject({ data });
-    });
+    if (!response.ok) {
+      return Promise.reject(new Error('Fetch Error'));
+    }
+
+    return Promise.resolve(await response[options.responseType]());
   }
-
-
-  static xhr(request) {
-    return new Promise((resolve, reject) => {
-      var xhr = new XMLHttpRequest(),
-          url = new URL(request.url);
-
-      request = Object.assign({}, {
-        method: 'get',
-        formData: new FormData()
-      }, request);
-
-      if ('qs' in request) {
-        Object.entries(request.qs).forEach(([name, value]) => url.searchParams.append(name, value));
-      }
-
-      if ('body' in request) {
-        if (toString.call(request.body).includes('Object')) {
-          Object.entries(request.qs).forEach(([name, value]) => request.formData.append(name, value));
-        } else {
-          request.formData = request.body;
-        }
-      }
-
-      xhr.open(request.method, url, true);
-
-      switch (request.type) {
-        case 'xml':
-          xhr.setRequestHeader('Content-Type', 'application/xml');
-          break;
-
-        case 'json':
-          xhr.setRequestHeader('Content-Type', 'application/json');
-          break;
-      }
-
-      if (request.timeout) xhr.timeout = request.timeout;
-
-      xhr.onload = () => {
-        if (xhr.status === 200 || xhr.status === 201 || xhr.status === 304) {
-          switch (request.type) {
-            case 'xml':
-              resolve(xhr.responseXML);
-              break;
-
-            case 'text':
-              resolve(xhr.responseText);
-              break;
-
-            case 'json':
-              resolve(JSON.parse(xhr.responseText));
-              break;
-          }
-        } else {
-          reject({
-            status: false,
-            code: xhr.status
-          });
-        }
-
-        xhr.abort();
-      }
-
-      xhr.onerror = e => reject({
-        status: false,
-        code: 'native',
-        detail: e
-      });
-
-      xhr.ontimeout = () => reject({
-        status: false,
-        code: 'timeout'
-      });
-
-      xhr.send(request.formData);
-    });
-  };
 
   static xmlChildrenParser(collections) {
     var currentData = {};

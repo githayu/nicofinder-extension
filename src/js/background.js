@@ -110,7 +110,22 @@ class Background {
         });
 
         return true;
-        break;
+      }
+
+      case 'isHTML5NicoVideo': {
+        chrome.cookies.getAll({
+          domain: 'nicovideo.jp',
+          name: 'watch_html5'
+        }, (cookies) => {
+          if (!cookies.length) {
+            sendResponse(false);
+          } else {
+            const isHTML5 = cookies[0].value === '1';
+            sendResponse(isHTML5);
+          }
+        });
+
+        return true;
       }
     }
   }
