@@ -96,10 +96,9 @@ class Background {
       }
 
       case 'fetchVideoAPI': {
-        Utils.xhr({
+        Utils.fetch({
           url: baseURL.nicoapi.videoInfo,
-          method: 'post',
-          type: 'json',
+          responseType: 'json',
           qs: {
             v: request.data,
             __format: 'json'
