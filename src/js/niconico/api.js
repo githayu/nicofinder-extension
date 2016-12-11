@@ -12,6 +12,7 @@ export async function fetchWatchAPI(request) {
 
   return await Utils.fetch({
     url: `http://www.nicovideo.jp/watch/${request.watchId}`,
+    responseType: 'json',
     qs: {
       mode: 'pc_html5',
       eco: eco,
@@ -24,8 +25,7 @@ export async function fetchWatchAPI(request) {
       headers: {
         'Content-Type': 'application/json'
       }
-    },
-    responseType: 'json'
+    }
   });
 }
 
@@ -40,12 +40,12 @@ export async function fetchWatchHTML(request) {
 
   const watchHTML = await Utils.fetch({
     url: `http://www.nicovideo.jp/watch/${request.watchId}`,
+    request: { credentials: 'include' },
+    responseType: 'text',
     qs: {
       watch_harmful: 1,
       eco: eco
-    },
-    request: { credentials: 'include' },
-    responseType: 'text'
+    }
   });
 
   return new DOMParser().parseFromString(watchHTML, 'text/html');
@@ -56,15 +56,17 @@ export async function fetchWatchHTML(request) {
  * @param {string} url
  */
 export async function fetchStoryboard(url) {
-  const responseText = await Utils.fetch({
+  const response = await Utils.xhr({
     url: url,
     qs: { sb: 1 },
-    request: { credentials: 'include' },
-    responseType: 'text'
+    withCredentials: true,
+    responseType: 'xml',
+    headers: {
+      'Content-Type': 'application/xml'
+    }
   });
 
-  const storyboardDocument = new DOMParser().parseFromString(responseText, 'application/xml');
-  const storyboardResult = Utils.xmlChildrenParser(storyboardDocument.children);
+  const storyboardResult = Utils.xmlChildrenParser(response.children);
 
   if (storyboardResult.smile.status === 'ok') {
     return storyboardResult.smile;
@@ -84,4 +86,26 @@ export async function fetchFlvInfo(params) {
   });
 
   return Utils.decodeURLParams(paramsString);
+}
+
+
+/**
+ * 同期通信で再生終了時間を記録する
+ * @param {String} watchId
+ * @param {String} playbackPosition
+ * @param {Srting} CSRFToken
+ */
+export async function recoadPlaybackPosition(watchId, playbackPosition, CSRFToken) {
+  return await Utils.xhr({
+    url: 'http://flapi.nicovideo.jp/api/record_current_playback_position',
+    method: 'POST',
+    async: false,
+    responseType: 'json',
+    withCredentials: true,
+    body: {
+      watch_id: watchId,
+      playback_position: playbackPosition,
+      csrf_token: CSRFToken
+    }
+  });
 }

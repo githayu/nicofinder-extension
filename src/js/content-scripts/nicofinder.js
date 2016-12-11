@@ -2,10 +2,18 @@ import getIn from 'lodash.get';
 import setIn from 'lodash.set';
 import Cookies from 'js-cookie';
 import { Utils, DetailURL } from '../utils';
-import { fetchWatchAPI, fetchWatchHTML, fetchStoryboard, fetchFlvInfo } from '../niconico/api';
 import CommentPost from '../niconico/post-chat';
 import DMCGateway from '../niconico/dmc-gateway';
 import NicofinderStorage from '../nicofinder/localstorage';
+import {
+  fetchWatchAPI,
+  fetchWatchHTML,
+  fetchStoryboard,
+  fetchFlvInfo,
+  recoadPlaybackPosition
+} from '../niconico/api';
+
+// 後方互換のために冗長なところは移行後に消す
 
 class Nicofinder {
   web = {
@@ -29,9 +37,23 @@ class Nicofinder {
 
     document.addEventListener('DOMContentLoaded', this.domContentLoaded);
 
+    window.addEventListener('beforeunload', this.beforeUnload);
+
     chrome.runtime.sendMessage({
       type: 'isHTML5NicoVideo'
     }, (res) => this.isHTML5 = res);
+  }
+
+  beforeUnload = async () => {
+    if (getIn(this, 'storage.player_setting_v2.use_resume')) {
+      const video = document.getElementById('html5-video');
+      const isPlay = Math.floor(video.currentTime) !== 0;
+      const isNotEnd = Math.floor(video.duration) > Math.floor(video.currentTime);
+
+      if (video && isPlay && isNotEnd) {
+        await recoadPlaybackPosition(this.getWatchId, video.currentTime, this.getCSRFToken);
+      }
+    }
   }
 
   domContentLoaded = () => {
@@ -94,11 +116,58 @@ class Nicofinder {
     }
   }
 
+  videoWatchRequest = async () => {
+    let flvKeyName;
+    let eventType;
+
+    this.nicoApi.flvInfo = await fetchFlvInfo({
+      v: this.getWatchId,
+      eco: this.isForceEconomy
+    });
+
+    if (this.web.watchInfo.version.startsWith('2.0.')) {
+      flvKeyName = 'getflv';
+      eventType = 'watch';
+    } else {
+      flvKeyName = 'flvInfo';
+      eventType = 'completeFetchWatchInfo';
+    }
+
+    if (getIn(this, 'nicoApi.flvInfo.closed')) {
+      this.dispatchPlayerEvent({
+        type: eventType,
+        data: {
+          [flvKeyName]: this.nicoApi.flvInfo
+        }
+      });
+    } else {
+      await this.fetchWatchEmbeddedAPI();
+
+      this.videoWatchResponse();
+
+      if (this.nicoApi.flvInfo.is_premium) {
+        this.fetchStoryboard();
+      }
+    }
+  }
+
   async videoWatchResponse() {
+    let flvKeyName;
+    let eventType;
+
+    if (this.web.watchInfo.version.startsWith('2.0.')) {
+      flvKeyName = 'getflv';
+      eventType = 'watch';
+    } else {
+      flvKeyName = 'flvInfo';
+      eventType = 'completeFetchWatchInfo';
+    }
+
     let result = {
-      getflv: this.nicoApi.flvInfo
+      [flvKeyName]: this.nicoApi.flvInfo
     };
 
+    // Dmc
     if (this.getDmcInfo !== null && this.web.watchInfo.version.startsWith('2.1.')) {
       this.dmcGateway = new DMCGateway(this.getDmcInfo.session_api);
       const session = await this.dmcGateway.startSession();
@@ -111,8 +180,15 @@ class Nicofinder {
       this.dmcGateway = null;
     }
 
+    // Resume
+    if (this.isHTML5 && this.nicoApi.watchInfo.context.initialPlaybackType === 'resume') {
+      result.resume = {
+        playbackPosition: this.nicoApi.watchInfo.context.initialPlaybackPosition
+      };
+    }
+
     this.dispatchPlayerEvent({
-      type: 'watch',
+      type: eventType,
       data: result
     });
   }
@@ -128,7 +204,7 @@ class Nicofinder {
     if (!storyboard) return;
 
     this.dispatchPlayerEvent({
-      type: 'storyboard',
+      type: this.web.watchInfo.version.startsWith('2.0.') ? 'storyboard' : 'completeFetchStoryboard',
       data: storyboard
     });
   }
@@ -246,28 +322,6 @@ class Nicofinder {
     });
   }
 
-  videoWatchRequest = async () => {
-    this.nicoApi.flvInfo = await fetchFlvInfo({
-      v: this.getWatchId,
-      eco: this.isForceEconomy
-    });
-
-    if (getIn(this, 'nicoApi.flvInfo.closed')) {
-      this.dispatchPlayerEvent({
-        type: 'getflv',
-        data: this.nicoApi.flvInfo
-      });
-    } else {
-      await this.fetchWatchEmbeddedAPI();
-
-      this.videoWatchResponse();
-
-      if (this.nicoApi.flvInfo.is_premium) {
-        this.fetchStoryboard();
-      }
-    }
-  }
-
   changeQuality = async (e) => {
     const request = e.detail;
 
@@ -292,7 +346,7 @@ class Nicofinder {
         result = Object.assign({}, result, {
           type: 'smile',
           payload: {
-            source: this.nicoApi.watchInfo.video.source
+            source: this.getVideoSource
           }
         });
 
@@ -370,6 +424,16 @@ class Nicofinder {
       return this.nicoApi.watchEnv.playlistToken;
     } else if (getIn(this, 'nicoApi.watchInfo.playlistToken')) {
       return this.nicoApi.watchInfo.playlistToken;
+    } else {
+      return null;
+    }
+  }
+
+  get getCSRFToken() {
+    if (getIn(this, 'nicoApi.watchInfo.context.csrfToken')) {
+      return this.nicoApi.watchInfo.context.csrfToken;
+    } else if (getIn(this, 'nicoApi.watchInfo.flashvars.csrfToken')) {
+      return this.nicoApi.watchInfo.flashvars.csrfToken;
     } else {
       return null;
     }
