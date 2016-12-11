@@ -37,8 +37,6 @@ class Nicofinder {
 
     document.addEventListener('DOMContentLoaded', this.domContentLoaded);
 
-    window.addEventListener('beforeunload', this.beforeUnload);
-
     chrome.runtime.sendMessage({
       type: 'isHTML5NicoVideo'
     }, (res) => this.isHTML5 = res);
@@ -49,8 +47,9 @@ class Nicofinder {
       const video = document.getElementById('html5-video');
       const isPlay = Math.floor(video.currentTime) !== 0;
       const isNotEnd = Math.floor(video.duration) > Math.floor(video.currentTime);
+      const isPremium = this.nicoApi.flvInfo.is_premium === 1;
 
-      if (video && isPlay && isNotEnd) {
+      if (video && isPremium && isPlay && isNotEnd) {
         await recoadPlaybackPosition(this.getWatchId, video.currentTime, this.getCSRFToken);
       }
     }
@@ -62,6 +61,8 @@ class Nicofinder {
     if (detailURL.isNicofinder && !detailURL.hasDir('watch', 'player')) {
       return false;
     }
+
+    window.addEventListener('beforeunload', this.beforeUnload);
 
     const watchApiElement = document.querySelector('.watch-api');
     const watchInfoElement = document.querySelector('.watch-data');
