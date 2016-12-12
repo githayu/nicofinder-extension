@@ -389,15 +389,9 @@ class Nicofinder {
   }
 
   get getWatchId() {
-    if (getIn(this, 'nicoApi.watchInfo.context.watchId')) {
-      return this.nicoApi.watchInfo.context.watchId;
-    } else if (getIn(this, 'nicoApi.watchInfo.videoDetail.v')) {
-      return this.nicoApi.watchInfo.videoDetail.v;
-    } else {
-      return this.web.videoInfo.video.channel
-           ? this.web.videoInfo.video.channel_thread
-           : this.web.videoInfo.video.id;
-    }
+    return this.web.videoInfo.video.channel
+         ? this.web.videoInfo.video.channel_thread
+         : this.web.videoInfo.video.id;
   }
 
   get getVideoSource() {
