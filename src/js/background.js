@@ -1,5 +1,6 @@
 import { Utils, DetailURL } from './utils';
 import { baseURL, defaultStorage } from './config';
+import { fetchVideoInfo } from './niconico/api';
 
 class Background {
   static webRequestOptions = {
@@ -47,6 +48,56 @@ class Background {
       }
     });
 
+    // 再生キューに追加
+    chrome.contextMenus.create({
+      title: '再生キューに追加',
+      type: 'normal',
+      contexts: ['link'],
+      targetUrlPatterns: [
+        '*://*.nicofinder.net/watch/*',
+        '*://www.nicovideo.jp/watch/*',
+        '*://nico.ms/*'
+      ],
+      onclick: async (info) => {
+        const detailURL = new DetailURL(info.linkUrl);
+
+        if (detailURL.hasDir('watch')) {
+          const [response, tabs] = await Promise.all([
+            fetchVideoInfo(detailURL.getContentId()),
+            Utils.getActiveTabs()
+          ]);
+
+          const videoInfo = response.nicovideo_video_response;
+          const isOkay = videoInfo['@status'] === 'ok';
+          const isDeleted = videoInfo.video.deleted != 0;
+          const isPlayable = videoInfo.video.vita_playable === 'OK';
+
+          if (!isOkay || isDeleted || !isPlayable) {
+            return alert('この動画は追加できません');
+          }
+
+          const video = {
+            commentCount: Number(videoInfo.thread.num_res),
+            description: videoInfo.video.description,
+            duration: Number(videoInfo.video.length_in_seconds),
+            id: videoInfo.video.id,
+            largeThumbnail: videoInfo.video.options['@large_thumbnail'] == 1,
+            myListCount: Number(videoInfo.video.mylist_counter),
+            published: Date.parse(videoInfo.video.first_retrieve),
+            tags: videoInfo.tags.tag_info.map(tag => { tag: tag.tag }),
+            thumbnailUrl: videoInfo.video.thumbnail_url,
+            title: videoInfo.video.title,
+            viewCount: Number(videoInfo.video.view_counter)
+          };
+
+          chrome.tabs.sendMessage(tabs[0].id, {
+            type: 'appendQueue',
+            payload: video
+          });
+        }
+      }
+    });
+
     // Nicofinder で対応するページを開く
     chrome.contextMenus.create({
       title: 'Nicofinderで開く',
@@ -67,7 +118,6 @@ class Background {
         }
       }
     });
-
 
     // Nicofinder コメント解析ページを開く
     chrome.contextMenus.create({
@@ -96,14 +146,7 @@ class Background {
       }
 
       case 'fetchVideoAPI': {
-        Utils.fetch({
-          url: baseURL.nicoapi.videoInfo,
-          responseType: 'json',
-          qs: {
-            v: request.data,
-            __format: 'json'
-          }
-        }).then(res => {
+        fetchVideoInfo(request.data).then(res => {
           this.videoInfo = res.nicovideo_video_response;
           sendResponse(res.nicovideo_video_response);
         });
@@ -125,6 +168,11 @@ class Background {
         });
 
         return true;
+      }
+
+      case 'notification': {
+        const n = new Notification(request.data.title, request.data.options);
+        setTimeout(n.close.bind(n), 5000);
       }
     }
   }
