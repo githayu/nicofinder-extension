@@ -82,6 +82,16 @@ export class Utils {
       );
     }
 
+    if (options.request.hasOwnProperty('body') && toString.call(options.request.body).includes('Object')) {
+      const formData = new FormData();
+
+      Object.entries(options.request.body).forEach(([name, value]) =>
+        formData.append(name, value)
+      );
+
+      options.request.body = formData;
+    }
+
     const request = new Request(url, options.request);
     const response = await fetch(request);
 

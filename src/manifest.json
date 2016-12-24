@@ -1,6 +1,6 @@
 {
   "name": "Nicofinder",
-  "version": "2.4.3",
+  "version": "2.5.0",
   "manifest_version": 2,
   "description": "Nicofinderでの動画視聴を支援する拡張機能です。",
   "author": "Hayu",
@@ -10,6 +10,7 @@
     "storage",
     "webRequest",
     "contextMenus",
+    "notifications",
     "webRequestBlocking",
     "*://*.nicofinder.net/*",
     "*://*.nicovideo.jp/*",
@@ -33,21 +34,35 @@
   "content_scripts": [
     {
       "matches": [
-        "*://www.nicofinder.net/*"
+        "*://*.nicofinder.net/*"
       ],
       "js": [
         "js/vendor.js",
         "js/content-scripts/extension-provider.js",
-        "js/content-scripts/nicofinder.js"
+        "js/content-scripts/nicofinder.js",
+        "js/content-scripts/queue-manager.js"
       ],
-      "run_at": "document_start",
-      "all_frames": true
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "*://www.nicovideo.jp/*"
+      ],
+      "js": [
+        "js/vendor.js",
+        "js/content-scripts/queue-manager.js"
+      ]
     }
   ],
   "web_accessible_resources": [
     "js/vendor.js",
     "js/content-scripts/extension-provider.js"
   ],
+  "externally_connectable": {
+    "matches": [
+      "*://*.nicofinder.net/*"
+    ]
+  },
   "options_ui": {
     "page": "html/options.html",
     "chrome_style": true

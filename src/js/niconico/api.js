@@ -1,4 +1,5 @@
 import { Utils } from '../utils';
+import { baseURL } from '../config';
 
 /**
  * WatchAPIを取得する
@@ -79,7 +80,7 @@ export async function fetchStoryboard(url) {
  */
 export async function fetchFlvInfo(params) {
   const paramsString = await Utils.fetch({
-    url: 'http://flapi.nicovideo.jp/api/getflv',
+    url: baseURL.nicoapi.getflv,
     qs: params,
     request: { credentials: 'include' },
     responseType: 'text'
@@ -97,7 +98,7 @@ export async function fetchFlvInfo(params) {
  */
 export async function recoadPlaybackPosition(watchId, playbackPosition, CSRFToken) {
   return await Utils.xhr({
-    url: 'http://flapi.nicovideo.jp/api/record_current_playback_position',
+    url: baseURL.nicoapi.recoadPlaybackPosition,
     method: 'POST',
     async: false,
     responseType: 'json',
@@ -107,5 +108,23 @@ export async function recoadPlaybackPosition(watchId, playbackPosition, CSRFToke
       playback_position: playbackPosition,
       csrf_token: CSRFToken
     }
+  });
+}
+
+/**
+ * 動画情報を取得する
+ * @param  {String} videoId
+ */
+export function fetchVideoInfo(videoId) {
+  return Utils.fetch({
+    url: baseURL.nicoapi.videoInfo,
+    request: {
+      method: 'POST',
+      body: {
+        v: videoId,
+        __format: 'json'
+      }
+    },
+    responseType: 'json'
   });
 }

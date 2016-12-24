@@ -30,6 +30,10 @@ const Entries = {
   contentProvider: {
     name: 'content-scripts/extension-provider',
     path: './src/js/content-scripts/extension-provider'
+  },
+  contentQueueManager: {
+    name: 'content-scripts/queue-manager',
+    path: './src/js/content-scripts/queue-manager.js'
   }
 };
 
