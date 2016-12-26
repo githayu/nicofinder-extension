@@ -1,11 +1,12 @@
 class QueueManager {
   constructor() {
-    this.pushEmbeddedAPI();
-    chrome.runtime.onMessage.addListener(this.onChromeMessage);
-    window.addEventListener('message', this.onAPIMessage);
+    chrome.runtime.onMessage.addListener(this.onMessageChrome);
+    window.addEventListener('message', this.onMessageWindow);
   }
 
-  onChromeMessage = (request, sender, sendResponse) => {
+  onMessageChrome = (request, sender, sendResponse) => {
+    if (!this.embedAPI) this.pushEmbedAPI();
+
     switch (request.type) {
       case 'appendQueue': {
         const targetOrigin = new URL('http://www.nicofinder.net');
@@ -14,13 +15,13 @@ class QueueManager {
           targetOrigin.hostname = targetOrigin.hostname.replace('www', 'dev');
         }
 
-        this.iframe.contentWindow.postMessage(request, targetOrigin);
+        this.embedAPI.contentWindow.postMessage(request, targetOrigin);
         break;
       }
     }
   }
 
-  onAPIMessage = (e) => {
+  onMessageWindow = (e) => {
     if (!toString.call(e.data).includes('Object') || !e.data.hasOwnProperty('type')) return;
 
     switch (e.data.type) {
@@ -43,7 +44,7 @@ class QueueManager {
     }
   }
 
-  pushEmbeddedAPI() {
+  pushEmbedAPI() {
     const iframe = document.createElement('iframe');
     const src = new URL('http://www.nicofinder.net/api/');
 
@@ -51,10 +52,10 @@ class QueueManager {
       src.hostname = src.hostname.replace('www', 'dev');
     }
 
-    iframe.id = 'nicofinder-embeddedAPI';
+    iframe.id = 'nicofinder-embedAPI';
     iframe.src = src;
     iframe.hidden = true;
-    this.iframe = iframe;
+    this.embedAPI = iframe;
 
     (document.body || document.documentElement).appendChild(iframe);
   }

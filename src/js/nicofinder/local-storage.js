@@ -1,11 +1,11 @@
-export default class NicofinderStorage {
+export default class LocalStorage {
   static defaultItems = [
     'player_setting_v2',
     'comment_history'
   ];
 
   constructor() {
-    this.constructor.defaultItems.forEach(name => this.update(name));
+    LocalStorage.defaultItems.forEach(name => this.update(name));
   }
 
   set(name, value) {

@@ -34,18 +34,16 @@
   "content_scripts": [
     {
       "matches": [
-        "*://*.nicofinder.net/*"
+        "*://*.nicofinder.net/watch/*"
       ],
       "js": [
         "js/vendor.js",
-        "js/content-scripts/extension-provider.js",
-        "js/content-scripts/nicofinder.js",
-        "js/content-scripts/queue-manager.js"
-      ],
-      "run_at": "document_start"
+        "js/content-scripts/watch.js"
+      ]
     },
     {
       "matches": [
+        "*://*.nicofinder.net/*",
         "*://www.nicovideo.jp/*"
       ],
       "js": [
@@ -53,10 +51,6 @@
         "js/content-scripts/queue-manager.js"
       ]
     }
-  ],
-  "web_accessible_resources": [
-    "js/vendor.js",
-    "js/content-scripts/extension-provider.js"
   ],
   "externally_connectable": {
     "matches": [
