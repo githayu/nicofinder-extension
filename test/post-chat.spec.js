@@ -1,10 +1,10 @@
 import 'babel-polyfill';
 import assert from 'power-assert';
-import { ValidateComment, ValidateCommand } from '../src/js/niconico/validate-chat.js';
+import { ValidateChat } from '../src/js/niconico/';
 
 describe('コメント投稿フォーマットテスト', () => {
   it('空白コメントは無効', () => {
-    const validation = new ValidateComment({
+    const validation = new ValidateChat.comment({
       comment: ''
     });
 
@@ -14,7 +14,7 @@ describe('コメント投稿フォーマットテスト', () => {
   it('1024文字を超えるコメントは無効', () => {
     let comment = ''; for (let i = 0; i < 1025; i++) comment += 'w';
 
-    const validation = new ValidateComment({ comment });
+    const validation = new ValidateChat.comment({ comment });
 
     assert.throws(() => validation.length(), 'Invalid comment length');
   });
@@ -36,7 +36,7 @@ describe('コメント投稿フォーマットテスト', () => {
       }
     };
 
-    const validation = new ValidateComment(request);
+    const validation = new ValidateChat.comment(request);
 
     assert.throws(() => validation.continuousPost(), /Continuous post is not allowed/);
   });
@@ -47,7 +47,7 @@ describe('コメント投稿フォーマットテスト', () => {
       isAllowContinuousPosts: true
     };
 
-    const validation = new ValidateComment(request);
+    const validation = new ValidateChat.comment(request);
 
     assert.ok(validation.continuousPost());
   });
@@ -60,7 +60,7 @@ describe('コメント投稿フォーマットテスト', () => {
       isNeedsKey: false
     };
 
-    const validation = new ValidateCommand(request);
+    const validation = new ValidateChat.command(request);
 
     validation.tryAdd184();
 
@@ -77,7 +77,7 @@ describe('コメント投稿フォーマットテスト', () => {
       isNeedsKey: false
     };
 
-    const validation = new ValidateCommand(request);
+    const validation = new ValidateChat.command(request);
 
     validation.tryRemove184();
 

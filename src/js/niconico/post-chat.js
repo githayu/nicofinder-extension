@@ -1,13 +1,8 @@
 import getIn from 'lodash.get';
 import { Utils } from '../utils.js';
+import { ValidateChat } from './';
 
-import {
-  ValidateComment,
-  ValidateCommand,
-  validateThreadResult
-} from './validate-chat';
-
-export default class CommentPost {
+export default class PostChat {
   static threadKeyUrl = 'http://flapi.nicovideo.jp/api/getthreadkey';
   static postKeyUrl = 'http://flapi.nicovideo.jp/api/getpostkey';
   static requestCount = 0;
@@ -130,8 +125,8 @@ export default class CommentPost {
   }
 
   requestValidation() {
-    const commentValidation = new ValidateComment(this.request);
-    const commandValidation = new ValidateCommand(this.request);
+    const commentValidation = new ValidateChat.comment(this.request);
+    const commandValidation = new ValidateChat.command(this.request);
 
     this.latest.comment = commentValidation.execute();
     this.latest.command = commandValidation.execute();
@@ -142,13 +137,13 @@ export default class CommentPost {
 
     switch (type) {
       case 'request':
-        start = `rs:${CommentPost.requestCount}`;
-        finish = `rf:${CommentPost.requestCount}`;
+        start = `rs:${PostChat.requestCount}`;
+        finish = `rf:${PostChat.requestCount}`;
         break;
 
       case 'packet':
-        start = `ps:${CommentPost.packetCount}`;
-        finish = `pf:${CommentPost.packetCount}`;
+        start = `ps:${PostChat.packetCount}`;
+        finish = `pf:${PostChat.packetCount}`;
         break;
     }
 
@@ -162,13 +157,13 @@ export default class CommentPost {
       }
     ];
 
-    CommentPost[`${type}Count`]++;
+    PostChat[`${type}Count`]++;
 
     return result;
   }
 
   async fetchThreadKey() {
-    const url = new URL(CommentPost.threadKeyUrl);
+    const url = new URL(PostChat.threadKeyUrl);
     const formData = new FormData();
     formData.append('thread', this.request.threadId);
 
@@ -196,7 +191,7 @@ export default class CommentPost {
   }
 
   async fetchPostKey() {
-    const url = new URL(CommentPost.postKeyUrl);
+    const url = new URL(PostChat.postKeyUrl);
     const params = {
       thread: this.request.threadId,
       block_no: this.getBlockNo,
@@ -250,7 +245,7 @@ export default class CommentPost {
     const packet = await this.fetchThread(postBody);
     const chatResult = packet.chat_result[0];
 
-    validateThreadResult('post', chatResult.status);
+    ValidateChat.threadResult('post', chatResult.status);
 
     this.latest.thread.last_res = chatResult.no;
 
@@ -265,7 +260,7 @@ export default class CommentPost {
     const packet = await this.fetchThread(postBody);
     const thread = packet.thread[0];
 
-    validateThreadResult('fetch', thread.resultcode);
+    ValidateChat.threadResult('fetch', thread.resultcode);
 
     this.latest.thread = thread;
 

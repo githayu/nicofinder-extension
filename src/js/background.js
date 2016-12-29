@@ -17,6 +17,8 @@ class Background {
     this.store = {};
     this.redirectMap = new Map();
 
+    chrome.runtime.onMessageExternal.addListener(this.onMessageExternal.bind(this));
+
     // I/O
     chrome.runtime.onMessage.addListener(this.messenger.bind(this));
 
@@ -121,7 +123,7 @@ class Background {
 
     // Nicofinder コメント解析ページを開く
     chrome.contextMenus.create({
-      title: 'コメント解析',
+      title: 'コメント解析を開く',
       type: 'normal',
       contexts: ['link'],
       targetUrlPatterns: ['http://www.nicovideo.jp/watch/*'],
@@ -135,6 +137,18 @@ class Background {
         }
       }
     });
+  }
+
+  onMessageExternal(message, sender, sendResponse) {
+    switch (message.type) {
+      case 'isEnabled':
+        return sendResponse(true);
+
+      default:
+        chrome.tabs.sendMessage(sender.tab.id, message, (response) => sendResponse(response));
+    }
+
+    return true;
   }
 
   messenger(request, sender, sendResponse) {
@@ -164,6 +178,21 @@ class Background {
           } else {
             const isHTML5 = cookies[0].value === '1';
             sendResponse(isHTML5);
+          }
+        });
+
+        return true;
+      }
+
+      case 'getUserSession': {
+        chrome.cookies.getAll({
+          domain: 'nicovideo.jp',
+          name: 'user_session'
+        }, (cookies) => {
+          if (!cookies.length) {
+            sendResponse(false);
+          } else {
+            sendResponse(cookies[0].value);
           }
         });
 

@@ -19,7 +19,8 @@ module.exports = function(config) {
             loader: 'babel-loader',
             exclude: /node_modules/,
             query: {
-              presets: ['react', 'latest', 'power-assert']
+              presets: ['react', 'latest', 'power-assert'],
+              plugins: ['transform-class-properties']
             }
           },
           {

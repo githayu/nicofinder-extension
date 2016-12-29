@@ -9,7 +9,7 @@ const isProd = env === 'production';
 const Entries = {
   vendor: {
     name: 'vendor',
-    path: './src/js/initialize'
+    path: './src/js/vendor'
   },
   background: {
     name: 'background',
@@ -23,17 +23,13 @@ const Entries = {
     name: 'options',
     path: './src/js/options'
   },
-  contentNicofinder: {
-    name: 'content-scripts/nicofinder',
-    path: './src/js/content-scripts/nicofinder'
-  },
-  contentProvider: {
-    name: 'content-scripts/extension-provider',
-    path: './src/js/content-scripts/extension-provider'
+  contentWatch: {
+    name: 'content-scripts/watch',
+    path: './src/js/content-scripts/watch'
   },
   contentQueueManager: {
     name: 'content-scripts/queue-manager',
-    path: './src/js/content-scripts/queue-manager.js'
+    path: './src/js/content-scripts/queue-manager'
   }
 };
 
@@ -83,6 +79,10 @@ export default {
   },
 
   devtool: isDev ? 'eval-source-map' : false,
+
+  performance: {
+    hints: isProd ? 'warning' : false
+  },
 
   plugins: [
     new webpack.optimize.CommonsChunkPlugin({

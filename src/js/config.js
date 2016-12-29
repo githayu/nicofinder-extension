@@ -5,7 +5,9 @@ export const baseURL = {
   nicoapi: {
     getflv: 'http://flapi.nicovideo.jp/api/getflv',
     videoInfo: 'http://api.ce.nicovideo.jp/nicoapi/v1/video.info',
-    recoadPlaybackPosition: 'http://flapi.nicovideo.jp/api/record_current_playback_position'
+    recoadPlaybackPosition: 'http://flapi.nicovideo.jp/api/record_current_playback_position',
+    myListGroupAdd: 'http://api.ce.nicovideo.jp/nicoapi/v1/mylistgroup.add',
+    myListAdd: 'http://api.ce.nicovideo.jp/nicoapi/v1/mylist.add'
   }
 };
 

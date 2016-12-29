@@ -3,7 +3,7 @@ import {
   threadPostResultCode
 } from '../config';
 
-export class ValidateComment {
+class ValidateComment {
   constructor(request) {
     const {
       threadId,
@@ -67,7 +67,7 @@ export class ValidateComment {
 }
 
 
-export class ValidateCommand {
+class ValidateCommand {
   constructor(request) {
     const {
       command,
@@ -111,7 +111,7 @@ export class ValidateCommand {
 }
 
 
-export function validateThreadResult(type, resultCode) {
+function validateThreadResult(type, resultCode) {
   let codeList = (type === 'post') ? threadPostResultCode : threadFetchResultCode;
 
   if (resultCode !== 0) {
@@ -122,3 +122,9 @@ export function validateThreadResult(type, resultCode) {
     throw new Error(code.key);
   }
 }
+
+export default {
+  comment: ValidateComment,
+  command: ValidateCommand,
+  threadResult: validateThreadResult
+};
