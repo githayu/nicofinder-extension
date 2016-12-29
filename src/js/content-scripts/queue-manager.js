@@ -1,11 +1,13 @@
 class QueueManager {
   constructor() {
-    chrome.runtime.onMessage.addListener(this.onMessageChrome);
-    window.addEventListener('message', this.onMessageWindow);
+    chrome.runtime.onMessage.addListener(this.onMessageChrome.bind(this));
+    window.addEventListener('message', this.onMessageWindow.bind(this));
   }
 
-  onMessageChrome = (request, sender, sendResponse) => {
-    if (!this.embedAPI) this.pushEmbedAPI();
+  async onMessageChrome(request, sender, sendResponse) {
+    if (!this.embedAPI) {
+      this.embedAPI = await this.pushEmbedAPI();
+    }
 
     switch (request.type) {
       case 'appendQueue': {
@@ -21,7 +23,7 @@ class QueueManager {
     }
   }
 
-  onMessageWindow = (e) => {
+  onMessageWindow(e) {
     if (!toString.call(e.data).includes('Object') || !e.data.hasOwnProperty('type')) return;
 
     switch (e.data.type) {
@@ -55,9 +57,10 @@ class QueueManager {
     iframe.id = 'nicofinder-embedAPI';
     iframe.src = src;
     iframe.hidden = true;
-    this.embedAPI = iframe;
 
     (document.body || document.documentElement).appendChild(iframe);
+
+    return new Promise(resolve => iframe.addEventListener('load', () => resolve(iframe)));
   }
 }
 

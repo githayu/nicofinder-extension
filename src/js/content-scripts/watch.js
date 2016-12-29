@@ -163,6 +163,10 @@ class Watch {
   }
 
   onVideoChange(e) {
+    const watchInfo = e.detail;
+
+    if (!watchInfo) return;
+
     setIn(this, 'webAPI.videoInfo', e.detail);
   }
 
