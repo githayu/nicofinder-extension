@@ -81,7 +81,7 @@ export default {
   devtool: isDev ? 'eval-source-map' : false,
 
   performance: {
-    hints: isProd ? 'warning' : false
+    hints: isProd ? true : false
   },
 
   plugins: [
