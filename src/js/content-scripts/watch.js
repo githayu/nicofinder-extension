@@ -61,6 +61,10 @@ class Watch {
       case 'postChat':
         this.postChat(request.payload).then(response => sendResponse(response));
         break;
+
+      case 'saveQueueToMyList':
+        this.saveQueueToMyList(request.payload).then(response => sendResponse(response));
+        break;
     }
 
     return true;
@@ -141,7 +145,9 @@ class Watch {
 
       // Storyboard
       if (this.nicoAPI.flvInfo.is_premium) {
-        const storyboard = await API.fetchStoryboard(this.getVideoSource).catch();
+        const storyboard = await API.fetchStoryboard(this.getVideoSource).catch(err => {
+
+        });
 
         if (storyboard) {
           result.storyboard = storyboard;
@@ -263,6 +269,74 @@ class Watch {
     }
 
     return Promise.resolve(result);
+  }
+
+  async saveQueueToMyList(request) {
+    const { group, items } = request;
+
+    const userSession = await new Promise(resolve => {
+      chrome.runtime.sendMessage({
+        type: 'getUserSession'
+      }, (response) => resolve(response));
+    });
+
+    if (!userSession) return Promise.reject();
+
+    const myListGroupResponse = await API.createMyListGroup({
+      userSession: userSession,
+      name: group.name,
+      description: group.description,
+      isPublic: group.isPublic ? 1 : 0
+    }).then(res => res.nicovideo_mylistgroup_response).catch(err => {
+      console.error(err);
+    });
+
+    if (myListGroupResponse['@status'] !== 'ok') {
+      return Promise.reject();
+    }
+
+    const player = document.getElementById('player');
+    const itemIterator = items.entries();
+
+    // マイリストの登録順の最小が1秒毎なので1秒毎追加
+    await new Promise(resolve => {
+      const intervalId = setInterval(async () => {
+        const item = itemIterator.next();
+
+        if (item.done) {
+          clearInterval(intervalId);
+          return resolve();
+        }
+
+        const [itemIndex, itemDetail] = item.value;
+        let itemStatus = true;
+
+        const myListResponse = await API.addItemMyList({
+          userSession: userSession,
+          watchId: itemDetail.id,
+          groupId: myListGroupResponse.id
+        }).then(res => res.nicovideo_mylist_response).catch(err => {
+          itemStatus = false;
+        });
+
+        if (myListResponse['@status'] !== 'ok') {
+          itemStatus = false;
+        }
+
+        player.dispatchEvent(new CustomEvent('saveQueueToMyListProgress', {
+          detail: {
+            item: itemDetail,
+            status: itemStatus,
+            value: itemIndex + 1,
+            max: items.length
+          }
+        }));
+      }, 1000);
+    });
+
+    return Promise.resolve({
+      groupId: myListGroupResponse.id
+    });
   }
 
   get isForceEconomy() {

@@ -128,3 +128,63 @@ export function fetchVideoInfo(videoId) {
     responseType: 'json'
   });
 }
+
+/**
+ * マイリストグループの新規作成
+ * @param  {String} request.userSession
+ * @param  {String} request.name
+ * @param  {String} request.description
+ * @param  {Number} request.defaultSort
+ * @param  {Number} request.isPublic
+ */
+export function createMyListGroup(request) {
+  const defaultRequest = {
+    description: '',
+    defaultSort: 0,  // 登録が古い順
+    isPublic: 0
+  };
+
+  request = Object.assign({}, defaultRequest, request);
+
+  return Utils.fetch({
+    url: baseURL.nicoapi.myListGroupAdd,
+    request: {
+      method: 'POST',
+      headers: {
+        'X-NICOVITA-SESSION': request.userSession
+      },
+      body: {
+        __format: 'json',
+        default_sort: request.defaultSort,
+        description: request.description,
+        name: request.name,
+        public: request.isPublic
+      }
+    },
+    responseType: 'json'
+  })
+}
+
+/**
+ * マイリストにアイテムを追加
+ * @param {String} request.userSession
+ * @param {String} request.watchId
+ * @param {Number} request.groupId
+ */
+export function addItemMyList(request) {
+  return Utils.fetch({
+    url: baseURL.nicoapi.myListAdd,
+    request: {
+      method: 'POST',
+      headers: {
+        'X-NICOVITA-SESSION': request.userSession
+      },
+      body: {
+        __format: 'json',
+        v: request.watchId,
+        group_id: request.groupId
+      }
+    },
+    responseType: 'json'
+  })
+}

@@ -140,11 +140,13 @@ class Background {
   }
 
   onMessageExternal(message, sender, sendResponse) {
-    if (message.type === 'isEnabled') {
-      return sendResponse(true);
-    }
+    switch (message.type) {
+      case 'isEnabled':
+        return sendResponse(true);
 
-    chrome.tabs.sendMessage(sender.tab.id, message, (response) => sendResponse(response));
+      default:
+        chrome.tabs.sendMessage(sender.tab.id, message, (response) => sendResponse(response));
+    }
 
     return true;
   }
@@ -176,6 +178,21 @@ class Background {
           } else {
             const isHTML5 = cookies[0].value === '1';
             sendResponse(isHTML5);
+          }
+        });
+
+        return true;
+      }
+
+      case 'getUserSession': {
+        chrome.cookies.getAll({
+          domain: 'nicovideo.jp',
+          name: 'user_session'
+        }, (cookies) => {
+          if (!cookies.length) {
+            sendResponse(false);
+          } else {
+            sendResponse(cookies[0].value);
           }
         });
 
