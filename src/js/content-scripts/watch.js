@@ -354,8 +354,8 @@ class Watch {
   }
 
   get getVideoSource() {
-    if (getIn(this, 'nicoAPI.watchInfo.video.source')) {
-      return this.nicoAPI.watchInfo.video.source;
+    if (getIn(this, 'nicoAPI.watchInfo.video.smileInfo.url')) {
+      return this.nicoAPI.watchInfo.video.smileInfo.url;
     } else if (getIn(this, 'nicoAPI.watchInfo.flvInfo.url')) {
       return this.nicoAPI.watchInfo.flvInfo.url;
     } else {
