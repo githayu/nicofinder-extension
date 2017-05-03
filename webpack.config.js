@@ -81,9 +81,7 @@ module.exports = {
 
   devtool: isDev ? 'eval-source-map' : false,
 
-  performance: {
-    hints: isProd ? true : false
-  },
+  performance: false,
 
   plugins: [
     new webpack.optimize.CommonsChunkPlugin({
