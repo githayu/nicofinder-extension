@@ -1,6 +1,7 @@
-import webpack from 'webpack';
-import ExtractTextPlugin from 'extract-text-webpack-plugin';
-import HtmlWebpackPlugin from 'html-webpack-plugin';
+const path = require('path');
+const webpack = require('webpack');
+const ExtractTextPlugin = require('extract-text-webpack-plugin');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
 
 const env = process.env.NODE_ENV = process.argv.includes('-p') ? 'production' : 'development';
 const isDev = env === 'development';
@@ -66,7 +67,7 @@ const HtmlWebpackPluginEntries = [
   }
 ];
 
-export default {
+module.exports = {
   entry: Object.values(Entries).reduce((previous, current) => {
     previous[current.name] = current.path;
     return previous;
@@ -75,7 +76,7 @@ export default {
   output: {
     publicPath: '/',
     filename: 'js/[name].js',
-    path: './dist'
+    path: path.resolve(__dirname, 'dist')
   },
 
   devtool: isDev ? 'eval-source-map' : false,

@@ -20,7 +20,10 @@ class Watch {
 
     this.storage = new LocalStorage();
 
-    chrome.runtime.onMessage.addListener(this.onMessageChrome.bind(this));
+    // 外部リクエストの処理
+    chrome.runtime.onConnect.addListener(port => {
+      port.onMessage.addListener(this.onConnectChrome.bind(this));
+    });
 
     chrome.runtime.sendMessage({
       type: 'isHTML5NicoVideo'
@@ -44,30 +47,28 @@ class Watch {
     }
   }
 
-  onMessageChrome(request, sender, sendResponse) {
-    switch (request.type) {
+  onConnectChrome(msg, port) {
+    switch (msg.type) {
       case 'fetchWatchInfo':
-        this.fetchWatchInfo().then(response => sendResponse(response));
+        this.fetchWatchInfo(port);
         break;
 
       case 'changeQuality':
-        this.changeQuality(request.payload).then(response => sendResponse(response));
+        this.changeQuality(port, msg.payload);
         break;
 
       case 'fetchNicoHistory':
-        this.fetchNicoHistory().then(() => sendResponse());
+        this.fetchNicoHistory(port);
         break;
 
       case 'postChat':
-        this.postChat(request.payload).then(response => sendResponse(response));
+        this.postChat(port, msg.payload);
         break;
 
       case 'saveQueueToMyList':
-        this.saveQueueToMyList(request.payload).then(response => sendResponse(response));
+        this.saveQueueToMyList(port, msg.payload);
         break;
     }
-
-    return true;
   }
 
   onBeforeUnload() {
@@ -101,23 +102,40 @@ class Watch {
     }
   }
 
-  async fetchWatchInfo() {
+  async fetchWatchInfo(port) {
     this.nicoAPI.flvInfo = await API.fetchFlvInfo({
       v: this.getWatchId,
       eco: this.isForceEconomy
     });
 
+    const data = {
+      flvInfo: {
+        type: 'flvInfo',
+        payload: this.nicoAPI.flvInfo
+      },
+      dmcInfo: {
+        type: 'dmcInfo',
+        payload: null
+      },
+      resumeInfo: {
+        type: 'resumeInfo',
+        payload: null
+      },
+      storyboardInfo: {
+        type: 'storyboardInfo',
+        payload: null
+      }
+    };
+
     if (getIn(this, 'nicoAPI.flvInfo.closed')) {
-      return Promise.resolve({
-        flvInfo: this.nicoAPI.flvInfo
+      Object.values(data).forEach(item => {
+        port.postMessage(item);
       });
 
     } else {
       await this.fetchWatchEmbeddedAPI();
 
-      let result = {
-        flvInfo: this.nicoAPI.flvInfo
-      };
+      port.postMessage(data.flvInfo);
 
       if (this.dmcGateway) {
         await this.dmcGateway.deleteSession();
@@ -128,20 +146,25 @@ class Watch {
         this.dmcGateway = new DMCGateway(this.getDmcInfo.session_api);
         const session = await this.dmcGateway.startSession();
 
-        result = Object.assign({}, result, {
+        data.dmcInfo.payload = {
           dmcInfo: this.getDmcInfo.session_api,
           dmcSession: session
-        });
+        };
+
       } else {
         this.dmcGateway = null;
       }
 
+      port.postMessage(data.dmcInfo);
+
       // Resume
       if (this.nicoAPI.isHTML5 && this.nicoAPI.watchInfo.context.initialPlaybackType === 'resume') {
-        result.resume = {
+        data.resumeInfo.payload = {
           playbackPosition: this.nicoAPI.watchInfo.context.initialPlaybackPosition
         };
       }
+
+      port.postMessage(data.resumeInfo);
 
       // Storyboard
       if (this.nicoAPI.flvInfo.is_premium) {
@@ -150,11 +173,11 @@ class Watch {
         });
 
         if (storyboard) {
-          result.storyboard = storyboard;
+          data.storyboardInfo.payload = storyboard;
         }
       }
 
-      return Promise.resolve(result);
+      port.postMessage(data.storyboardInfo);
     }
   }
 
@@ -170,7 +193,7 @@ class Watch {
     setIn(this, 'webAPI.videoInfo', e.detail);
   }
 
-  async postChat(req) {
+  async postChat(port, req) {
     const lastPostChat = this.storage.comment_history
       ? this.storage.comment_history[this.storage.comment_history.length - 1]
       : null;
@@ -207,19 +230,24 @@ class Watch {
       date: response.chat.date
     });
 
-    return Promise.resolve(response);
+    port.postMessage({
+      type: 'completedCommentPost',
+      payload: response
+    });
   }
 
-  async fetchNicoHistory() {
+  async fetchNicoHistory(port) {
     await API.fetchWatchAPI({
       watchId: this.getWatchId,
       playlistToken: this.getPlaylistToken
     });
 
-    return Promise.resolve(true);
+    port.postMessage({
+      type: 'fetchNicoHistory'
+    });
   }
 
-  async changeQuality(request) {
+  async changeQuality(port, request) {
     let result = {};
 
     switch (request.type) {
@@ -272,10 +300,13 @@ class Watch {
       }
     }
 
-    return Promise.resolve(result);
+    port.postMessage({
+      type: 'changeQuality',
+      payload: result
+    });
   }
 
-  async saveQueueToMyList(request) {
+  async saveQueueToMyList(port, request) {
     const { group, items } = request;
 
     const userSession = await new Promise(resolve => {
@@ -327,19 +358,23 @@ class Watch {
           itemStatus = false;
         }
 
-        player.dispatchEvent(new CustomEvent('saveQueueToMyListProgress', {
-          detail: {
+        port.postMessage({
+          type: 'progressSaveQueueToMyList',
+          payload: {
             item: itemDetail,
             status: itemStatus,
             value: itemIndex + 1,
             max: items.length
           }
-        }));
+        });
       }, 1000);
     });
 
-    return Promise.resolve({
-      groupId: myListGroupResponse.id
+    port.postMessage({
+      type: 'completeSaveQueueToMyList',
+      payload: {
+        groupId: myListGroupResponse.id
+      }
     });
   }
 
