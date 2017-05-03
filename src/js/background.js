@@ -17,7 +17,29 @@ class Background {
     this.store = {};
     this.redirectMap = new Map();
 
-    chrome.runtime.onMessageExternal.addListener(this.onMessageExternal.bind(this));
+    // 拡張機能チェック
+    chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
+      if (message.type === 'isInstalled') {
+        sendResponse(true);
+      }
+    });
+
+    // 外部接続の中継
+    chrome.runtime.onConnectExternal.addListener(port => {
+      if (port.name === 'player') {
+        port.onMessage.addListener(msg => {
+          const tabPort = chrome.tabs.connect(port.sender.tab.id, {
+            name: port.name
+          });
+
+          // コンテンツスクリプトからのレスポンスを外部へ渡す
+          tabPort.onMessage.addListener(tabMsg => port.postMessage(tabMsg));
+
+          // 外部からのリクエストをコンテンツスクリプトへ渡す
+          tabPort.postMessage(msg);
+        });
+      }
+    });
 
     // I/O
     chrome.runtime.onMessage.addListener(this.messenger.bind(this));
@@ -137,18 +159,6 @@ class Background {
         }
       }
     });
-  }
-
-  onMessageExternal(message, sender, sendResponse) {
-    switch (message.type) {
-      case 'isEnabled':
-        return sendResponse(true);
-
-      default:
-        chrome.tabs.sendMessage(sender.tab.id, message, (response) => sendResponse(response));
-    }
-
-    return true;
   }
 
   messenger(request, sender, sendResponse) {

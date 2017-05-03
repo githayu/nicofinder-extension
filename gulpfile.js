@@ -1,12 +1,12 @@
-import gulp from 'gulp';
-import gif from 'gulp-if';
-import plumber from 'gulp-plumber';
-import ignore from 'gulp-ignore';
-import mergeJSON from 'gulp-merge-json';
-import jsonminify from 'gulp-jsonminify';
-import minimist from 'minimist';
-import del from 'del';
-import manifestDevConfig from './config/manifest.dev.json';
+const gulp = require('gulp');
+const gif = require('gulp-if');
+const plumber = require('gulp-plumber');
+const ignore = require('gulp-ignore');
+const mergeJSON = require('gulp-merge-json');
+const jsonminify = require('gulp-jsonminify');
+const minimist = require('minimist');
+const del = require('del');
+const manifestDevConfig = require('./config/manifest.dev.json');
 
 const options = minimist(process.argv.slice(2), {
   string: 'env',
@@ -22,32 +22,11 @@ const isDev = options.env === 'development';
 var entries = {
   json: [
     'src/**/*.json'
+  ],
+  copy: [
+    'src/img/**/*'
   ]
 };
-
-// コピー機
-entries.other = (() => {
-  var result = [
-    'src/**/*',
-    '!src/(js|css|html)/**/*'
-  ];
-
-  Object.values(entries).forEach(pattern => {
-    var newPattern = [];
-
-    Array.from(pattern).forEach(text => {
-      if (text.includes('node_modules')) {
-        newPattern.push(text.slice(1));
-      } else {
-        newPattern.push(text.startsWith('!') ? text : '!'+ text);
-      }
-    });
-
-    result.push(...newPattern);
-  });
-
-  return result;
-})();
 
 // タスクたち
 gulp.task('json', () =>
@@ -61,8 +40,8 @@ gulp.task('json', () =>
     .pipe(gulp.dest('dist'))
 );
 
-gulp.task('other', () =>
-  gulp.src(entries.other, { base: 'src' })
+gulp.task('copy', () =>
+  gulp.src(entries.copy, { base: 'src' })
     .pipe(plumber())
     .pipe(ignore.include({
       isFile: true
@@ -80,4 +59,4 @@ gulp.task('clean', () => del(['dist', '*.zip']));
 
 gulp.task('build', gulp.series('clean', gulp.parallel(...Object.keys(entries))));
 
-gulp.task('default', gulp.series('watch'));
+gulp.task('default', gulp.series('build', 'watch'));
