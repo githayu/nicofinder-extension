@@ -4,7 +4,7 @@ export default class DMCGateway {
   }
 
   get getEndpointURL() {
-    return new URL(this.dmcInfo.api_urls[0]);
+    return new URL(this.dmcInfo.urls[0].url);
   }
 
   get getSessionURL() {
