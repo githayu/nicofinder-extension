@@ -15,7 +15,7 @@ class Watch {
     this.nicoAPI = {
       flvInfo: null,
       watchInfo: null,
-      isHTML5: false
+      isFlash: false
     };
 
     this.storage = new LocalStorage();
@@ -26,8 +26,8 @@ class Watch {
     });
 
     chrome.runtime.sendMessage({
-      type: 'isHTML5NicoVideo'
-    }, (response) => this.nicoAPI.isHTML5 = response);
+      type: 'isWatchFlash'
+    }, (response) => this.nicoAPI.isFlash = response);
 
     const videoInfo = document.querySelector('.watch-api');
     const watchInfo = document.querySelector('.watch-data');
@@ -90,7 +90,7 @@ class Watch {
       isEconomy: isEconomy
     });
 
-    if (this.nicoAPI.isHTML5) {
+    if (!this.nicoAPI.isFlash) {
       const embeddedAPI = watchDocument.getElementById('js-initial-watch-data');
 
       this.nicoAPI.watchInfo = JSON.parse(embeddedAPI.dataset.apiData);
@@ -158,7 +158,7 @@ class Watch {
       port.postMessage(data.dmcInfo);
 
       // Resume
-      if (this.nicoAPI.isHTML5 && this.nicoAPI.watchInfo.context.initialPlaybackType === 'resume') {
+      if (!this.nicoAPI.isFlash && this.nicoAPI.watchInfo.context.initialPlaybackType === 'resume') {
         data.resumeInfo.payload = {
           playbackPosition: this.nicoAPI.watchInfo.context.initialPlaybackPosition
         };
@@ -212,7 +212,7 @@ class Watch {
       lastPostChat: lastPostChat
     };
 
-    if (this.nicoAPI.isHTML5) {
+    if (!this.nicoAPI.isFlash) {
       request = Object.assign({}, request, {
         userKey: this.nicoAPI.watchInfo.context.userkey
       });

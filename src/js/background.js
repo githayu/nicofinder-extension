@@ -178,16 +178,16 @@ class Background {
         return true;
       }
 
-      case 'isHTML5NicoVideo': {
+      case 'isWatchFlash': {
         chrome.cookies.getAll({
           domain: 'nicovideo.jp',
-          name: 'watch_html5'
+          name: 'watch_flash'
         }, (cookies) => {
           if (!cookies.length) {
             sendResponse(false);
           } else {
-            const isHTML5 = cookies[0].value === '1';
-            sendResponse(isHTML5);
+            const isFlash = cookies[0].value === '1';
+            sendResponse(isFlash);
           }
         });
 
