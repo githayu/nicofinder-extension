@@ -1,5 +1,25 @@
 {
   "presets": [
-    "latest"
+    "stage-2",
+    "react",
+    ["env", {
+      "targets": {
+        "browsers": [
+          "last 2 Chrome versions"
+        ]
+      }
+    }]
+  ],
+  "plugins": [
+    ["react-css-modules", {
+      "filetypes": {
+        ".scss": {
+          "syntax": "postcss"
+        }
+      },
+      "generateScopedName": "[folder]-[md5:hash:hex:10]",
+      "webpackHotModuleReloading": true,
+      "handleMissingStyleName": "warn"
+    }]
   ]
 }

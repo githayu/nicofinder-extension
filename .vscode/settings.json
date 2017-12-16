@@ -1,1 +1,6 @@
-{}
+{
+  "path-intellisense.mappings": {
+    "src": "${workspaceRoot}/src/",
+    "js": "${workspaceRoot}/src/js/"
+  }
+}

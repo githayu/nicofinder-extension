@@ -1,5 +1,5 @@
-import getIn from 'lodash.get';
-import { Utils } from '../utils.js';
+import _ from 'lodash';
+import { decodeURLParams } from '../utils/';
 import { ValidateChat } from './';
 
 export default class PostChat {
@@ -50,7 +50,7 @@ export default class PostChat {
   }
 
   get getLastRes() {
-    return getIn(this, 'latest.thread.last_res') || -1;
+    return _.get(this, 'latest.thread.last_res') || -1;
   }
 
   createPostJSON() {
@@ -179,7 +179,7 @@ export default class PostChat {
     }
 
     const responseText = await response.text();
-    const threadSecret = Utils.decodeURLParams(responseText);
+    const threadSecret = decodeURLParams(responseText);
 
     if (!threadSecret.threadkey.length) {
       return Promise.reject(new Error('Thread key is empty'));
@@ -297,7 +297,7 @@ export default class PostChat {
           console.log('try', pollingCount);
           return polling;
         }
-      }
+      };
 
       const intervalId = setInterval((polling)(), 500);
     });

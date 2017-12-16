@@ -1,0 +1,168 @@
+@mixin button {
+  > svg {
+    display: none;
+  }
+
+  &::before {
+    @include icon;
+    color: #fff;
+  }
+}
+
+@mixin icon {
+  font-family: 'Material Icons';
+}
+
+:root {
+  --primary-50: #E1F5FE;
+  --primary-100: #B3E5FC;
+  --primary-200: #81D4FA;
+  --primary-300: #4FC3F7;
+  --primary-400: #29B6F6;
+  --primary-500: #03A9F4;
+  --primary-600: #039BE5;
+  --primary-700: #0288D1;
+  --primary-800: #0277BD;
+  --primary-900: #01579B;
+  --primary-A100: #80D8FF;
+  --primary-A200: #40C4FF;
+  --primary-A400: #00B0FF;
+  --primary-A700: #0091EA;
+
+  --grey-50: #fafafa;
+  --grey-100: #f5f5f5;
+  --grey-200: #eeeeee;
+  --grey-300: #e0e0e0;
+  --grey-400: #bdbdbd;
+  --grey-500: #9e9e9e;
+  --grey-600: #757575;
+  --grey-700: #616161;
+  --grey-800: #424242;
+  --grey-900: #212121;
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#rootElementId {
+  > div {
+    > div:nth-of-type(3) {
+      > div:nth-of-type(2) {
+        display: none;
+
+        > div {
+          // シークバー
+          > div:first-of-type {
+            > div {
+              background-color: rgba(255,255,255,.5);
+
+              > div:first-of-type {
+                // 現在位置
+                > div:last-of-type {
+                  background-color: var(--primary-700);
+                }
+              }
+
+              // ツールチップ
+              > div:last-of-type {
+                background-color: rgba(0,0,0,.8);
+                padding: 0 5px;
+                line-height: 1.2rem;
+                top: -30px;
+                color: #f0f0f0;
+
+                &::before {
+                  content: '';
+                  border-style: solid;
+                  border-width: 4px 4px 0 4px;
+                  border-color: rgba(0,0,0,.8) transparent transparent transparent;
+                  position: absolute;
+                  top: 100%;
+                  left: calc(50% - 4px);
+                }
+              }
+            }
+          }
+
+          // コントロール
+          > div:last-of-type {
+
+          }
+        }
+      }
+    }
+  }
+}
+
+button {
+  &[data-title='再生'] {
+    @include button;
+
+    &::before {
+      content: '\e037';
+    }
+  }
+
+  &[data-title='一時停止'] {
+    @include button;
+
+    &::before {
+      content: '\e034';
+    }
+  }
+
+  &[data-title='ミュート'] {
+    @include button;
+
+    &::before {
+      content: '\e050';
+    }
+  }
+
+  &[data-title='ミュート解除'] {
+    @include button;
+
+    &::before {
+      content: '\e04f';
+    }
+  }
+
+  &[data-title='コメントを非表示'] {
+    @include button;
+
+    &::before {
+      content: '\e24c';
+    }
+  }
+
+  &[data-title='コメントを表示'] {
+    @include button;
+
+    &::before {
+      content: '\e253';
+    }
+  }
+
+  &[data-title='フルスクリーン'] {
+    @include button;
+
+    &::before {
+      content: '\e5d0';
+    }
+  }
+
+  &[data-title='フルスクリーン解除'] {
+    @include button;
+
+    &::before {
+      content: '\e5d1';
+    }
+  }
+
+  &[data-title='10秒戻る'],
+  &[data-title='10秒進む'] {
+    display: none;
+  }
+}

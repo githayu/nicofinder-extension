@@ -1,7 +1,7 @@
 import {
   threadFetchResultCode,
   threadPostResultCode
-} from '../config';
+} from '../constants';
 
 class ValidateComment {
   constructor(request) {

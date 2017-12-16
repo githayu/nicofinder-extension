@@ -1,5 +1,5 @@
-import { Utils } from '../utils';
-import { baseURL } from '../config';
+import { fetchClient, XHR, XMLToJS, decodeURLParams } from '../utils/';
+import { baseURL } from '../constants';
 
 /**
  * WatchAPIを取得する
@@ -11,7 +11,7 @@ import { baseURL } from '../config';
 export async function fetchWatchAPI(request) {
   const eco = request.isEconomy ? 1 : 0;
 
-  return await Utils.fetch({
+  return await fetchClient({
     url: `http://www.nicovideo.jp/watch/${request.watchId}`,
     responseType: 'json',
     qs: {
@@ -39,7 +39,7 @@ export async function fetchWatchAPI(request) {
 export async function fetchWatchHTML(request) {
   const eco = request.isEconomy ? 1 : 0;
 
-  const watchHTML = await Utils.fetch({
+  const watchHTML = await fetchClient({
     url: `http://www.nicovideo.jp/watch/${request.watchId}`,
     request: { credentials: 'include' },
     responseType: 'text',
@@ -57,7 +57,7 @@ export async function fetchWatchHTML(request) {
  * @param {string} url
  */
 export async function fetchStoryboard(url) {
-  const response = await Utils.xhr({
+  const response = await XHR({
     url: url,
     qs: { sb: 1 },
     withCredentials: true,
@@ -67,7 +67,7 @@ export async function fetchStoryboard(url) {
     }
   });
 
-  const storyboardResult = Utils.xmlChildrenParser(response.children);
+  const storyboardResult = XMLToJS(response.children);
 
   if (storyboardResult.smile.status === 'ok') {
     return storyboardResult.smile;
@@ -76,17 +76,21 @@ export async function fetchStoryboard(url) {
 
 /**
  * FlvInfoを取得する
- * @param {Object} params
+ * @param {Object} options
+ * @param {Object} options.qs
+ * @param {boolean} options.decode
  */
-export async function fetchFlvInfo(params) {
-  const paramsString = await Utils.fetch({
+export async function fetchFlvInfo(options) {
+  const paramsString = await fetchClient({
     url: baseURL.nicoapi.getflv,
-    qs: params,
+    qs: options.qs,
     request: { credentials: 'include' },
     responseType: 'text'
   });
 
-  return Utils.decodeURLParams(paramsString);
+  return options.decode
+    ? decodeURLParams(paramsString)
+    : paramsString;
 }
 
 
@@ -97,7 +101,7 @@ export async function fetchFlvInfo(params) {
  * @param {Srting} CSRFToken
  */
 export async function recoadPlaybackPosition(watchId, playbackPosition, CSRFToken) {
-  return await Utils.xhr({
+  return await XHR({
     url: baseURL.nicoapi.recoadPlaybackPosition,
     method: 'POST',
     async: false,
@@ -116,7 +120,7 @@ export async function recoadPlaybackPosition(watchId, playbackPosition, CSRFToke
  * @param  {String} videoId
  */
 export function fetchVideoInfo(videoId) {
-  return Utils.fetch({
+  return fetchClient({
     url: baseURL.nicoapi.videoInfo,
     request: {
       method: 'POST',
@@ -146,7 +150,7 @@ export function createMyListGroup(request) {
 
   request = Object.assign({}, defaultRequest, request);
 
-  return Utils.fetch({
+  return fetchClient({
     url: baseURL.nicoapi.myListGroupAdd,
     request: {
       method: 'POST',
@@ -172,7 +176,7 @@ export function createMyListGroup(request) {
  * @param {Number} request.groupId
  */
 export function addItemMyList(request) {
-  return Utils.fetch({
+  return fetchClient({
     url: baseURL.nicoapi.myListAdd,
     request: {
       method: 'POST',
@@ -186,5 +190,5 @@ export function addItemMyList(request) {
       }
     },
     responseType: 'json'
-  })
+  });
 }

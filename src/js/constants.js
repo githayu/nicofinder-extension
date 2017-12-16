@@ -3,7 +3,7 @@ export const baseURL = {
     top: 'http://www.nicofinder.net'
   },
   nicoapi: {
-    getflv: 'http://flapi.nicovideo.jp/api/getflv',
+    getflv: 'https://flapi.nicovideo.jp/api/getflv',
     videoInfo: 'http://api.ce.nicovideo.jp/nicoapi/v1/video.info',
     recoadPlaybackPosition: 'http://flapi.nicovideo.jp/api/record_current_playback_position',
     myListGroupAdd: 'http://api.ce.nicovideo.jp/nicoapi/v1/mylistgroup.add',

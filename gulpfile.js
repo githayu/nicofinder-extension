@@ -3,25 +3,26 @@ const gif = require('gulp-if');
 const plumber = require('gulp-plumber');
 const ignore = require('gulp-ignore');
 const mergeJSON = require('gulp-merge-json');
-const jsonminify = require('gulp-jsonminify');
+const sass = require('gulp-sass');
 const minimist = require('minimist');
-const del = require('del');
 const manifestDevConfig = require('./config/manifest.dev.json');
 
 const options = minimist(process.argv.slice(2), {
   string: 'env',
   default: {
-    env: process.env.NODE_ENV || 'development'
+    env: process.env.NODE_ENV
   }
 });
 
-const isProd = options.env === 'production';
-const isDev = options.env === 'development';
+const isDev = options.env !== 'production';
 
 // パターン
 var entries = {
   json: [
     'src/**/*.json'
+  ],
+  sass: [
+    'src/styles/**/*.scss'
   ],
   copy: [
     'src/img/**/*'
@@ -34,9 +35,15 @@ gulp.task('json', () =>
     .pipe(plumber())
     .pipe(gif(isDev, mergeJSON({
       fileName: 'manifest.json',
-      edit: (json, file) => Object.assign({}, json, manifestDevConfig)
+      edit: (json) => Object.assign({}, json, manifestDevConfig)
     })))
-    .pipe(gif(isProd, jsonminify()))
+    .pipe(gulp.dest('dist'))
+);
+
+gulp.task('sass', () =>
+  gulp.src(entries.sass, { base: 'src' })
+    .pipe(plumber())
+    .pipe(sass().on('error', sass.logError))
     .pipe(gulp.dest('dist'))
 );
 
@@ -55,8 +62,6 @@ gulp.task('watch', () =>
   )
 );
 
-gulp.task('clean', () => del(['dist', '*.zip']));
-
-gulp.task('build', gulp.series('clean', gulp.parallel(...Object.keys(entries))));
+gulp.task('build', gulp.parallel(...Object.keys(entries)));
 
 gulp.task('default', gulp.series('build', 'watch'));
