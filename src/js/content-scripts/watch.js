@@ -1,6 +1,4 @@
-import getIn from 'lodash.get';
-import setIn from 'lodash.set';
-import Cookies from 'js-cookie';
+import _ from 'lodash';
 import { Utils, DetailURL } from '../utils';
 import { LocalStorage } from '../nicofinder/';
 import { API, DMCGateway, PostChat } from '../niconico/';
@@ -72,7 +70,7 @@ class Watch {
   }
 
   onBeforeUnload() {
-    if (getIn(this, 'storage.player_setting_v2.use_resume')) {
+    if (_.get(this, 'storage.player_setting_v2.use_resume')) {
       const video = document.getElementById('html5-video');
       const isEnd = Math.floor(video.duration) <= Math.floor(video.currentTime);
       const isPremium = this.nicoAPI.flvInfo.is_premium === 1;
@@ -127,7 +125,7 @@ class Watch {
       }
     };
 
-    if (getIn(this, 'nicoAPI.flvInfo.closed')) {
+    if (_.get(this, 'nicoAPI.flvInfo.closed')) {
       Object.values(data).forEach(item => {
         port.postMessage(item);
       });
@@ -190,7 +188,7 @@ class Watch {
 
     if (!watchInfo) return;
 
-    setIn(this, 'webAPI.videoInfo', e.detail);
+    _.set(this, 'webAPI.videoInfo', e.detail);
   }
 
   async postChat(port, req) {
@@ -335,7 +333,7 @@ class Watch {
 
     // マイリストの登録順の最小が1秒毎なので1秒毎追加
     await new Promise(resolve => {
-      const intervalId = setInterval(async () => {
+      const intervalId = _.setterval(async () => {
         const item = itemIterator.next();
 
         if (item.done) {
@@ -389,9 +387,9 @@ class Watch {
   }
 
   get getVideoSource() {
-    if (getIn(this, 'nicoAPI.watchInfo.video.smileInfo.url')) {
+    if (_.get(this, 'nicoAPI.watchInfo.video.smileInfo.url')) {
       return this.nicoAPI.watchInfo.video.smileInfo.url;
-    } else if (getIn(this, 'nicoAPI.watchInfo.flvInfo.url')) {
+    } else if (_.get(this, 'nicoAPI.watchInfo.flvInfo.url')) {
       return this.nicoAPI.watchInfo.flvInfo.url;
     } else {
       return null;
@@ -399,9 +397,9 @@ class Watch {
   }
 
   get getDmcInfo() {
-    if (getIn(this, 'nicoAPI.watchInfo.video.dmcInfo')) {
+    if (_.get(this, 'nicoAPI.watchInfo.video.dmcInfo')) {
       return this.nicoAPI.watchInfo.video.dmcInfo;
-    } else if (getIn(this, 'nicoAPI.watchInfo.flashvars.dmcInfo')) {
+    } else if (_.get(this, 'nicoAPI.watchInfo.flashvars.dmcInfo')) {
       return JSON.parse(decodeURIComponent(this.nicoAPI.watchInfo.flashvars.dmcInfo));
     } else {
       return null;
@@ -409,9 +407,9 @@ class Watch {
   }
 
   get getPlaylistToken() {
-    if (getIn(this, 'nicoAPI.watchEnv.playlistToken')) {
+    if (_.get(this, 'nicoAPI.watchEnv.playlistToken')) {
       return this.nicoAPI.watchEnv.playlistToken;
-    } else if (getIn(this, 'nicoAPI.watchInfo.playlistToken')) {
+    } else if (_.get(this, 'nicoAPI.watchInfo.playlistToken')) {
       return this.nicoAPI.watchInfo.playlistToken;
     } else {
       return null;
@@ -419,9 +417,9 @@ class Watch {
   }
 
   get getCSRFToken() {
-    if (getIn(this, 'nicoAPI.watchInfo.context.csrfToken')) {
+    if (_.get(this, 'nicoAPI.watchInfo.context.csrfToken')) {
       return this.nicoAPI.watchInfo.context.csrfToken;
-    } else if (getIn(this, 'nicoAPI.watchInfo.flashvars.csrfToken')) {
+    } else if (_.get(this, 'nicoAPI.watchInfo.flashvars.csrfToken')) {
       return this.nicoAPI.watchInfo.flashvars.csrfToken;
     } else {
       return null;

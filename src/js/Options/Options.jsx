@@ -1,7 +1,8 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
-import { defaultStorage } from './config';
-import '../css/options.css';
+import { defaultStorage } from 'src/js/config';
+import styles from './Options.module.scss';
+import 'src/styles/common.scss';
 
 export default class Options extends React.Component {
   static defaultProps = {
@@ -133,7 +134,7 @@ export default class Options extends React.Component {
 
   render() {
     return (
-      <ul className="options">
+      <ul className={styles.options}>
         {this.renderOptions()}
       </ul>
     );
