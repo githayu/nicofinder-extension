@@ -89,6 +89,26 @@ export async function fetchFlvInfo(params) {
   return Utils.decodeURLParams(paramsString);
 }
 
+/**
+ * waybackkeyを取得する
+ *
+ * @export
+ * @param {{thread: number}} params
+ * @returns
+ */
+export function fetchWaybackkey(params) {
+  return Utils.fetch({
+    url: baseURL.nicoapi.getWaybackkey,
+    request: {
+      method: 'POST',
+      credentials: 'include',
+      body: params
+    },
+    responseType: 'text'
+  })
+    .then(res => Utils.decodeURLParams(res));
+}
+
 
 /**
  * 同期通信で再生終了時間を記録する
@@ -187,4 +207,17 @@ export function addItemMyList(request) {
     },
     responseType: 'json'
   })
+}
+
+export function fetchUserId() {
+  const url = 'https://public.api.nicovideo.jp/v1/user/id.json';
+
+  return Utils.fetch({
+    url,
+    request: {
+      credentials: 'include'
+    },
+    responseType: 'json'
+  })
+    .then(res => res?.data?.userId)
 }

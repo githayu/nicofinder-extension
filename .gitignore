@@ -3,5 +3,4 @@ dist/
 res/
 
 *.log
-*.lock
 *.zip

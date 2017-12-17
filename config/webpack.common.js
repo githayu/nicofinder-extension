@@ -3,14 +3,16 @@ const webpack = require('webpack');
 const ExtractTextPlugin = require('extract-text-webpack-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 
-const env = process.env.NODE_ENV = process.argv.includes('-p') ? 'production' : 'development';
-const isDev = env === 'development';
-const isProd = env === 'production';
-
 const Entries = {
   vendor: {
     name: 'vendor',
-    path: './src/js/vendor'
+    path: [
+      'react',
+      'react-dom',
+      'lodash',
+      'prop-types',
+      './src/js/vendor'
+    ]
   },
   background: {
     name: 'background',
@@ -18,11 +20,11 @@ const Entries = {
   },
   popup: {
     name: 'popup',
-    path: './src/js/popup'
+    path: './src/js/Popup/Popup'
   },
   options: {
     name: 'options',
-    path: './src/js/options'
+    path: './src/js/Options/Options'
   },
   contentWatch: {
     name: 'content-scripts/watch',
@@ -51,7 +53,7 @@ const HtmlWebpackPluginConfig = {
 const HtmlWebpackPluginEntries = [
   {
     filename: 'html/options.html',
-    template: 'src/html/options.html',
+    template: 'src/html/template.html',
     chunks: [
       Entries.vendor.name,
       Entries.options.name
@@ -59,7 +61,7 @@ const HtmlWebpackPluginEntries = [
   },
   {
     filename: 'html/popup.html',
-    template: 'src/html/popup.html',
+    template: 'src/html/template.html',
     chunks: [
       Entries.vendor.name,
       Entries.popup.name
@@ -76,42 +78,28 @@ module.exports = {
   output: {
     publicPath: '/',
     filename: 'js/[name].js',
-    path: path.resolve(__dirname, 'dist')
+    path: path.resolve(__dirname, '../dist/')
   },
 
-  devtool: isDev ? 'eval-source-map' : false,
+  resolve: {
+    alias: {
+      src: path.resolve(__dirname, '../src/')
+    },
 
-  performance: false,
+    extensions: ['.js', '.jsx', '.json']
+  },
 
   plugins: [
     new webpack.optimize.CommonsChunkPlugin({
       name: Entries.vendor.name,
       minChunks: Infinity
     }),
-    new webpack.DefinePlugin({
-      'process.env.NODE_ENV': JSON.stringify(env)
-    }),
+
     new ExtractTextPlugin('css/[name].css'),
-    new webpack.LoaderOptionsPlugin({
-      minimize: isProd,
-      debug: isDev,
-      options: {
-        postcss: webpack => ([
-          require('precss'),
-          require('cssnano')({
-           discardComments: {
-             removeAll: true
-            }
-          })
-        ])
-      }
-    }),
+
     ...HtmlWebpackPluginEntries.map(entry =>
       new HtmlWebpackPlugin(Object.assign({}, HtmlWebpackPluginConfig, entry))
-    ),
-    ...isProd ? [
-      new webpack.optimize.AggressiveMergingPlugin()
-    ] : []
+    )
   ],
 
   module: {
@@ -119,37 +107,37 @@ module.exports = {
       {
         test: /\.jsx?$/,
         loader: 'babel-loader',
-        exclude: /node_modules/,
-        query: {
-          presets: [
-            'react',
-            ['env', {
-              modules: false,
-              targets: {
-                browsers: 'last 2 Chrome versions'
-              }
-            }]
-          ],
-          plugins: [
-            'transform-runtime',
-            'transform-class-properties'
-          ]
-        }
+        exclude: /node_modules/
       },
       {
-        test: /\.css$/,
+        test: /\.module\.scss$/,
+        use: [
+          'style-loader',
+          {
+            loader: 'css-loader',
+            options: {
+              minimize: true,
+              modules: true,
+              localIdentName: '[folder]-[md5:hash:hex:10]'
+            }
+          },
+          'postcss-loader',
+          'sass-loader'
+        ]
+      },
+      {
+        test: /^(?!.*\.module\.scss)(?=.*\.scss).*$/,
         loader: ExtractTextPlugin.extract({
-          fallbackLoader: 'style-loader',
-          loader: [
+          fallback: 'style-loader',
+          use: [
             {
               loader: 'css-loader',
               options: {
-                modules: true
+                minimize: true
               }
             },
-            {
-              loader: 'postcss-loader'
-            }
+            'postcss-loader',
+            'sass-loader'
           ]
         })
       }

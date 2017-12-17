@@ -1,6 +1,7 @@
 import { Utils, DetailURL } from './utils';
 import { baseURL, defaultStorage } from './config';
 import { fetchVideoInfo } from './niconico/api';
+import { fetchPastThreads } from 'src/js/scripts/';
 
 class Background {
   static webRequestOptions = {
@@ -17,14 +18,22 @@ class Background {
     this.store = {};
     this.redirectMap = new Map();
 
-    // 拡張機能チェック
+    // 外部メッセージ
     chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
-      if (message.type === 'isInstalled') {
-        sendResponse(true);
+      switch (message.type) {
+        case 'isInstalled':
+          sendResponse(true);
+          break;
+
+        case 'fetchPastThreadRequest':
+          fetchPastThreads(message.payload, sendResponse);
+          break;
       }
+
+      return true;
     });
 
-    // 外部接続の中継
+    // 外部コネクト
     chrome.runtime.onConnectExternal.addListener(port => {
       if (port.name === 'player') {
         port.onMessage.addListener(msg => {
@@ -163,14 +172,8 @@ class Background {
 
   messenger(request, sender, sendResponse) {
     switch (request.type) {
-      case 'getBackgroundData': {
-        let response = request.data in this ? this[request.data] : null;
-        sendResponse(response);
-        break;
-      }
-
-      case 'fetchVideoAPI': {
-        fetchVideoInfo(request.data).then(res => {
+      case 'fetchVideoInfo': {
+        fetchVideoInfo(request.payload).then(res => {
           this.videoInfo = res.nicovideo_video_response;
           sendResponse(res.nicovideo_video_response);
         });

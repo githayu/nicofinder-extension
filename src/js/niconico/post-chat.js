@@ -1,4 +1,4 @@
-import getIn from 'lodash.get';
+import _ from 'lodash';
 import { Utils } from '../utils.js';
 import { ValidateChat } from './';
 
@@ -50,7 +50,7 @@ export default class PostChat {
   }
 
   get getLastRes() {
-    return getIn(this, 'latest.thread.last_res') || -1;
+    return _.get(this, 'latest.thread.last_res') || -1;
   }
 
   createPostJSON() {
