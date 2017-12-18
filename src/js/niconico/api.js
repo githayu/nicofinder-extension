@@ -1,5 +1,5 @@
-import { Utils } from '../utils';
-import { baseURL } from '../config';
+import { Utils } from '../utils'
+import { baseURL } from '../config'
 
 /**
  * WatchAPIを取得する
@@ -9,7 +9,7 @@ import { baseURL } from '../config';
  * @param {Boolean} request.isEconomy
  */
 export async function fetchWatchAPI(request) {
-  const eco = request.isEconomy ? 1 : 0;
+  const eco = request.isEconomy ? 1 : 0
 
   return await Utils.fetch({
     url: `http://www.nicovideo.jp/watch/${request.watchId}`,
@@ -19,15 +19,15 @@ export async function fetchWatchAPI(request) {
       eco: eco,
       playlist_token: request.playlistToken,
       watch_harmful: 2,
-      continue_watching: 1
+      continue_watching: 1,
     },
     request: {
       credentials: 'include',
       headers: {
-        'Content-Type': 'application/json'
-      }
-    }
-  });
+        'Content-Type': 'application/json',
+      },
+    },
+  })
 }
 
 /**
@@ -37,7 +37,7 @@ export async function fetchWatchAPI(request) {
  * @param {Boolean} request.isEconomy
  */
 export async function fetchWatchHTML(request) {
-  const eco = request.isEconomy ? 1 : 0;
+  const eco = request.isEconomy ? 1 : 0
 
   const watchHTML = await Utils.fetch({
     url: `http://www.nicovideo.jp/watch/${request.watchId}`,
@@ -45,11 +45,11 @@ export async function fetchWatchHTML(request) {
     responseType: 'text',
     qs: {
       watch_harmful: 1,
-      eco: eco
-    }
-  });
+      eco: eco,
+    },
+  })
 
-  return new DOMParser().parseFromString(watchHTML, 'text/html');
+  return new DOMParser().parseFromString(watchHTML, 'text/html')
 }
 
 /**
@@ -63,14 +63,14 @@ export async function fetchStoryboard(url) {
     withCredentials: true,
     responseType: 'xml',
     headers: {
-      'Content-Type': 'application/xml'
-    }
-  });
+      'Content-Type': 'application/xml',
+    },
+  })
 
-  const storyboardResult = Utils.xmlChildrenParser(response.children);
+  const storyboardResult = Utils.xmlChildrenParser(response.children)
 
   if (storyboardResult.smile.status === 'ok') {
-    return storyboardResult.smile;
+    return storyboardResult.smile
   }
 }
 
@@ -83,10 +83,10 @@ export async function fetchFlvInfo(params) {
     url: baseURL.nicoapi.getflv,
     qs: params,
     request: { credentials: 'include' },
-    responseType: 'text'
-  });
+    responseType: 'text',
+  })
 
-  return Utils.decodeURLParams(paramsString);
+  return Utils.decodeURLParams(paramsString)
 }
 
 /**
@@ -102,13 +102,11 @@ export function fetchWaybackkey(params) {
     request: {
       method: 'POST',
       credentials: 'include',
-      body: params
+      body: params,
     },
-    responseType: 'text'
-  })
-    .then(res => Utils.decodeURLParams(res));
+    responseType: 'text',
+  }).then((res) => Utils.decodeURLParams(res))
 }
-
 
 /**
  * 同期通信で再生終了時間を記録する
@@ -116,7 +114,11 @@ export function fetchWaybackkey(params) {
  * @param {String} playbackPosition
  * @param {Srting} CSRFToken
  */
-export async function recoadPlaybackPosition(watchId, playbackPosition, CSRFToken) {
+export async function recoadPlaybackPosition(
+  watchId,
+  playbackPosition,
+  CSRFToken
+) {
   return await Utils.xhr({
     url: baseURL.nicoapi.recoadPlaybackPosition,
     method: 'POST',
@@ -126,9 +128,9 @@ export async function recoadPlaybackPosition(watchId, playbackPosition, CSRFToke
     body: {
       watch_id: watchId,
       playback_position: playbackPosition,
-      csrf_token: CSRFToken
-    }
-  });
+      csrf_token: CSRFToken,
+    },
+  })
 }
 
 /**
@@ -142,11 +144,11 @@ export function fetchVideoInfo(videoId) {
       method: 'POST',
       body: {
         v: videoId,
-        __format: 'json'
-      }
+        __format: 'json',
+      },
     },
-    responseType: 'json'
-  });
+    responseType: 'json',
+  })
 }
 
 /**
@@ -160,28 +162,28 @@ export function fetchVideoInfo(videoId) {
 export function createMyListGroup(request) {
   const defaultRequest = {
     description: '',
-    defaultSort: 0,  // 登録が古い順
-    isPublic: 0
-  };
+    defaultSort: 0, // 登録が古い順
+    isPublic: 0,
+  }
 
-  request = Object.assign({}, defaultRequest, request);
+  request = Object.assign({}, defaultRequest, request)
 
   return Utils.fetch({
     url: baseURL.nicoapi.myListGroupAdd,
     request: {
       method: 'POST',
       headers: {
-        'X-NICOVITA-SESSION': request.userSession
+        'X-NICOVITA-SESSION': request.userSession,
       },
       body: {
         __format: 'json',
         default_sort: request.defaultSort,
         description: request.description,
         name: request.name,
-        public: request.isPublic
-      }
+        public: request.isPublic,
+      },
     },
-    responseType: 'json'
+    responseType: 'json',
   })
 }
 
@@ -197,27 +199,26 @@ export function addItemMyList(request) {
     request: {
       method: 'POST',
       headers: {
-        'X-NICOVITA-SESSION': request.userSession
+        'X-NICOVITA-SESSION': request.userSession,
       },
       body: {
         __format: 'json',
         v: request.watchId,
-        group_id: request.groupId
-      }
+        group_id: request.groupId,
+      },
     },
-    responseType: 'json'
+    responseType: 'json',
   })
 }
 
 export function fetchUserId() {
-  const url = 'https://public.api.nicovideo.jp/v1/user/id.json';
+  const url = 'https://public.api.nicovideo.jp/v1/user/id.json'
 
   return Utils.fetch({
     url,
     request: {
-      credentials: 'include'
+      credentials: 'include',
     },
-    responseType: 'json'
-  })
-    .then(res => res?.data?.userId)
+    responseType: 'json',
+  }).then((res) => res?.data?.userId)
 }
