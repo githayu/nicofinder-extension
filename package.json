@@ -21,7 +21,6 @@
   },
   "dependencies": {
     "lodash": "^4.17.4",
-    "prop-types": "^15.6.0",
     "react": "^16.2.0",
     "react-dom": "^16.2.0"
   },
@@ -33,7 +32,6 @@
     "autoprefixer": "^7.2.3",
     "babel-loader": "^8.0.0-beta.0",
     "css-loader": "^0.28.1",
-    "cssnano": "^3.10.0",
     "del": "^3.0.0",
     "extract-text-webpack-plugin": "^3.0.2",
     "gulp": "gulpjs/gulp#4.0",
