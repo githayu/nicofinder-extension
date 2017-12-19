@@ -1,28 +1,26 @@
 export const baseURL = {
   nicofinder: {
-    top: 'http://www.nicofinder.net'
+    top: 'http://www.nicofinder.net',
   },
   nicoapi: {
     getflv: 'http://flapi.nicovideo.jp/api/getflv',
     getWaybackkey: 'http://flapi.nicovideo.jp/api/getwaybackkey',
     videoInfo: 'http://api.ce.nicovideo.jp/nicoapi/v1/video.info',
-    recoadPlaybackPosition: 'http://flapi.nicovideo.jp/api/record_current_playback_position',
+    recoadPlaybackPosition:
+      'http://flapi.nicovideo.jp/api/record_current_playback_position',
     myListGroupAdd: 'http://api.ce.nicovideo.jp/nicoapi/v1/mylistgroup.add',
-    myListAdd: 'http://api.ce.nicovideo.jp/nicoapi/v1/mylist.add'
-  }
-};
+    myListAdd: 'http://api.ce.nicovideo.jp/nicoapi/v1/mylist.add',
+  },
+}
 
 export const defaultStorage = {
   extension: {
     local: {
       redirect: false,
-      redirectList: [
-        'watch',
-        'mylist'
-      ]
-    }
-  }
-};
+      redirectList: ['watch', 'mylist'],
+    },
+  },
+}
 
 export const threadFetchResultCode = [
   { key: 'Found', code: 0 },
@@ -42,8 +40,8 @@ export const threadFetchResultCode = [
   { key: 'InvalidUserKey', code: 14 },
   { key: 'TooOldUserKey', code: 15 },
   { key: 'ConflictUserKeyAndOtherKey', code: 16 },
-  { key: 'UserConflict', code: 17 }
-];
+  { key: 'UserConflict', code: 17 },
+]
 
 export const threadPostResultCode = [
   { key: 'Success', code: 0 },
@@ -54,5 +52,5 @@ export const threadPostResultCode = [
   { key: 'Locked', code: 5 },
   { key: 'ReadOnly', code: 6 },
   { key: 'NotImplemented', code: 7 },
-  { key: 'Invalid184', code: 8 }
-];
+  { key: 'Invalid184', code: 8 },
+]

@@ -211,6 +211,12 @@ export function addItemMyList(request) {
   })
 }
 
+/**
+ * ユーザーIDの取得
+ *
+ * @export
+ * @returns
+ */
 export function fetchUserId() {
   const url = 'https://public.api.nicovideo.jp/v1/user/id.json'
 
@@ -221,4 +227,37 @@ export function fetchUserId() {
     },
     responseType: 'json',
   }).then((res) => res?.data?.userId)
+}
+
+/**
+ * Threadkeyの取得
+ *
+ * @export
+ * @param {string|number} threadId
+ * @returns {{threadkey:string,force_184:number}}
+ */
+export async function fetchThreadkey(threadId) {
+  const url = 'http://flapi.nicovideo.jp/api/getthreadkey';
+  const formData = new FormData();
+
+  formData.append('thread', threadId);
+
+  // Cookieも送らないと正確なキーがもらえない
+  const response = await Utils.fetch({
+    url,
+    request: {
+      method: 'POST',
+      body: formData,
+      credentials: 'include'
+    },
+    responseType: 'text'
+  });
+
+  const threadSecret = Utils.decodeURLParams(response);
+
+  if (!threadSecret.threadkey.length) {
+    return throw new Error('Thread key is empty');
+  }
+
+  return threadSecret;
 }

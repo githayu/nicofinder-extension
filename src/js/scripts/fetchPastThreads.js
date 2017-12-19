@@ -1,20 +1,33 @@
-import _ from 'lodash'
 import FetchThreads from './FetchThreads'
-import { fetchWaybackkey, fetchUserId } from 'src/js/niconico/api'
+import {
+  fetchWaybackkey,
+  fetchUserId,
+  fetchThreadkey,
+} from 'src/js/niconico/api'
 
 export default async function fetchPastThreads(req, sendResponse) {
+  const { groupType, thread } = req
+  const mainThreadId = thread[`${groupType}ThreadId`]
+
+  // UserID
   const userId = await fetchUserId()
 
+  // Threadkey
+  if (groupType === 'community') {
+    const res = await fetchThreadkey(mainThreadId)
+
+    thread.force184 = res.force_184
+    thread.threadKey = res.threadkey
+  }
+
+  // Waybackkey
   const { waybackkey } = await fetchWaybackkey({
-    thread: do {
-      if (req.groupType === 'default') req.thread.defaultThreadId
-      else if (req.groupType === 'community') req.thread.communityThreadId
-      else if (req.groupType === 'nicos') req.thread.nicosThreadId
-    },
+    thread: mainThreadId,
   })
 
+  // Threads
   const threads = await new FetchThreads({
-    ...req.thread,
+    ...thread,
     waybackkey,
     userId,
   })
