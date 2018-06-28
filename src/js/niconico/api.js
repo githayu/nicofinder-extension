@@ -194,18 +194,62 @@ export function createMyListGroup(request) {
  * @param {Number} request.groupId
  */
 export function addItemMyList(request) {
+  const isDefList = request.groupId === 'defList'
+  const body = {
+    __format: 'json',
+    v: request.watchId,
+  }
+
+  if (!isDefList) body.group_id = request.groupId
+  if (!_.isNil(request.description)) body.description = request.description
+
   return Utils.fetch({
-    url: baseURL.nicoapi.myListAdd,
+    url: isDefList ? baseURL.nicoapi.defListAdd : baseURL.nicoapi.myListAdd,
     request: {
       method: 'POST',
       headers: {
         'X-NICOVITA-SESSION': request.userSession,
       },
-      body: {
-        __format: 'json',
-        v: request.watchId,
-        group_id: request.groupId,
-      },
+      body,
+    },
+    responseType: 'json',
+  })
+}
+
+/**
+ * マイリストグループリストの取得
+ */
+export function fetchMyListGroupList() {
+  return Utils.fetch({
+    url: baseURL.nicoapi.myListGroupList,
+    request: {
+      credentials: 'include',
+    },
+    responseType: 'json',
+  })
+}
+
+/**
+ * マイリストアイテムの取得
+ * @param {string} request.groupId
+ */
+export function fetchMyListItems(request) {
+  const isDefList = request.groupId === 'defList'
+
+  return Utils.fetch({
+    url: isDefList
+      ? baseURL.nicoapi.defListItemList
+      : baseURL.nicoapi.myListItemList,
+    request: {
+      method: 'POST',
+      credentials: 'include',
+      ...(isDefList
+        ? {}
+        : {
+            body: {
+              group_id: request.groupId,
+            },
+          }),
     },
     responseType: 'json',
   })
@@ -218,10 +262,8 @@ export function addItemMyList(request) {
  * @returns
  */
 export function fetchUserId() {
-  const url = 'https://public.api.nicovideo.jp/v1/user/id.json'
-
   return Utils.fetch({
-    url,
+    url: baseURL.nicoapi.getUserId,
     request: {
       credentials: 'include',
     },
@@ -237,27 +279,26 @@ export function fetchUserId() {
  * @returns {{threadkey:string,force_184:number}}
  */
 export async function fetchThreadkey(threadId) {
-  const url = 'http://flapi.nicovideo.jp/api/getthreadkey';
-  const formData = new FormData();
+  const formData = new FormData()
 
-  formData.append('thread', threadId);
+  formData.append('thread', threadId)
 
   // Cookieも送らないと正確なキーがもらえない
   const response = await Utils.fetch({
-    url,
+    url: baseURL.nicoapi.getThreadkey,
     request: {
       method: 'POST',
       body: formData,
-      credentials: 'include'
+      credentials: 'include',
     },
-    responseType: 'text'
-  });
+    responseType: 'text',
+  })
 
-  const threadSecret = Utils.decodeURLParams(response);
+  const threadSecret = Utils.decodeURLParams(response)
 
   if (!threadSecret.threadkey.length) {
-    return throw new Error('Thread key is empty');
+    throw new Error('Thread key is empty')
   }
 
-  return threadSecret;
+  return threadSecret
 }

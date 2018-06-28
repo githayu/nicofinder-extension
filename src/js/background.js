@@ -1,7 +1,11 @@
 import { Utils, DetailURL } from './utils'
 import { baseURL, defaultStorage } from './config'
 import { fetchVideoInfo } from './niconico/api'
-import { fetchPastThreads } from 'src/js/scripts/'
+import {
+  getNicoUserSession,
+  fetchPastThreads,
+  myListManager,
+} from 'src/js/scripts/'
 
 class Background {
   static webRequestOptions = {
@@ -29,6 +33,12 @@ class Background {
           case 'fetchPastThreadRequest':
             fetchPastThreads(message.payload, sendResponse)
             break
+
+          case 'fetchMyListGroupList':
+          case 'fetchMyListItems':
+          case 'appendMyListItem':
+            myListManager(message, sendResponse)
+            break
         }
 
         return true
@@ -39,9 +49,12 @@ class Background {
     chrome.runtime.onConnectExternal.addListener((port) => {
       if (port.name === 'player') {
         port.onMessage.addListener((msg) => {
-          const tabPort = chrome.tabs.connect(port.sender.tab.id, {
-            name: port.name,
-          })
+          const tabPort = chrome.tabs.connect(
+            port.sender.tab.id,
+            {
+              name: port.name,
+            }
+          )
 
           // コンテンツスクリプトからのレスポンスを外部へ渡す
           tabPort.onMessage.addListener((tabMsg) => port.postMessage(tabMsg))
@@ -295,21 +308,3 @@ class Background {
 }
 
 new Background()
-
-async function getNicoUserSession() {
-  return new Promise((resolve) =>
-    chrome.cookies.getAll(
-      {
-        domain: 'nicovideo.jp',
-        name: 'user_session',
-      },
-      (cookies) => {
-        if (!cookies.length) {
-          resolve(null)
-        } else {
-          resolve(cookies[0].value)
-        }
-      }
-    )
-  )
-}

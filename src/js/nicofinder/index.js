@@ -1,5 +1,1 @@
-import LocalStorage from './local-storage';
-
-export {
-  LocalStorage
-}
+export { default as LocalStorage } from './local-storage'

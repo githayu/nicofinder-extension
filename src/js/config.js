@@ -3,13 +3,19 @@ export const baseURL = {
     top: 'http://www.nicofinder.net',
   },
   nicoapi: {
-    getflv: 'http://flapi.nicovideo.jp/api/getflv',
-    getWaybackkey: 'http://flapi.nicovideo.jp/api/getwaybackkey',
-    videoInfo: 'http://api.ce.nicovideo.jp/nicoapi/v1/video.info',
+    getflv: 'https://flapi.nicovideo.jp/api/getflv',
+    getWaybackkey: 'https://flapi.nicovideo.jp/api/getwaybackkey',
+    getThreadkey: 'http://flapi.nicovideo.jp/api/getthreadkey',
+    videoInfo: 'https://api.ce.nicovideo.jp/nicoapi/v1/video.info',
     recoadPlaybackPosition:
-      'http://flapi.nicovideo.jp/api/record_current_playback_position',
-    myListGroupAdd: 'http://api.ce.nicovideo.jp/nicoapi/v1/mylistgroup.add',
-    myListAdd: 'http://api.ce.nicovideo.jp/nicoapi/v1/mylist.add',
+      'https://flapi.nicovideo.jp/api/record_current_playback_position',
+    myListGroupAdd: 'https://api.ce.nicovideo.jp/nicoapi/v1/mylistgroup.add',
+    myListGroupList: 'https://flapi.nicovideo.jp/api/mylistgroup/list',
+    myListAdd: 'https://api.ce.nicovideo.jp/nicoapi/v1/mylist.add',
+    defListAdd: 'https://api.ce.nicovideo.jp/nicoapi/v1/deflist.add',
+    myListItemList: 'https://flapi.nicovideo.jp/api/mylist/list',
+    defListItemList: 'https://flapi.nicovideo.jp/api/deflist/list',
+    getUserId: 'https://public.api.nicovideo.jp/v1/user/id.json',
   },
 }
 

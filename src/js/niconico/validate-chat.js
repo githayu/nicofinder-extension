@@ -1,7 +1,4 @@
-import {
-  threadFetchResultCode,
-  threadPostResultCode
-} from '../config';
+import { threadFetchResultCode, threadPostResultCode } from '../config'
 
 class ValidateComment {
   constructor(request) {
@@ -10,121 +7,112 @@ class ValidateComment {
       userId,
       comment,
       isAllowContinuousPosts,
-      lastPostChat
-    } = request;
+      lastPostChat,
+    } = request
 
-    this.userId = userId;
-    this.threadId = threadId;
-    this.comment = comment;
-    this.isAllowContinuousPosts = isAllowContinuousPosts;
-    this.lastPostChat = lastPostChat;
+    this.userId = userId
+    this.threadId = threadId
+    this.comment = comment
+    this.isAllowContinuousPosts = isAllowContinuousPosts
+    this.lastPostChat = lastPostChat
   }
 
   execute() {
-    this.length();
-    this.continuousPost();
+    this.length()
+    this.continuousPost()
 
-    return this.comment;
+    return this.comment
   }
 
   length() {
     if (!this.comment.length || this.comment.length > 1024) {
-      throw new Error('Invalid comment length');
+      throw new Error('Invalid comment length')
     } else {
-      return true;
+      return true
     }
   }
 
   continuousPost() {
-    let isExit = false;
+    let isExit = false
 
     if (!this.isAllowContinuousPosts) {
       if (!this.lastPostChat) {
-        return true;
+        return true
       }
 
-      const add60sToLastChat = this.lastPostChat.date + 60;
-      const currentUnixTime = Math.floor(Date.now() / 1000);
+      const add60sToLastChat = this.lastPostChat.date + 60
+      const currentUnixTime = Math.floor(Date.now() / 1000)
 
-      const isEqualThread = this.lastPostChat.threadId === this.thread;
-      const isEqualUserId = this.lastPostChat.user_id === this.userId;
-      const isEqualComment = this.lastPostChat.body === this.comment;
+      const isEqualThread = this.lastPostChat.threadId === this.thread
+      const isEqualUserId = this.lastPostChat.user_id === this.userId
+      const isEqualComment = this.lastPostChat.body === this.comment
 
-      isExit = (
+      isExit =
         isEqualThread &&
         isEqualComment &&
         isEqualUserId &&
         add60sToLastChat >= currentUnixTime
-      );
     }
 
     if (isExit) {
-      throw new Error('Continuous post is not allowed');
+      throw new Error('Continuous post is not allowed')
     } else {
-      return true;
+      return true
     }
   }
 }
 
-
 class ValidateCommand {
   constructor(request) {
-    const {
-      command,
-      comment,
-      isAnonymity,
-      isNeedsKey
-    } = request;
+    const { command, comment, isAnonymity, isNeedsKey } = request
 
-    this.command = command;
-    this.comment = comment;
-    this.isAnonymity = isAnonymity;
-    this.isNeedsKey = isNeedsKey;
+    this.command = command
+    this.comment = comment
+    this.isAnonymity = isAnonymity
+    this.isNeedsKey = isNeedsKey
   }
 
   execute() {
-    this.tryAdd184();
-    this.tryRemove184();
+    this.tryAdd184()
+    this.tryRemove184()
 
-    return this.command;
+    return this.command
   }
 
   tryAdd184() {
     // 匿名希望かつ、184無し
     if (this.isAnonymity && !this.command.has('184')) {
-      this.command.add('184');
+      this.command.add('184')
     }
   }
 
   tryRemove184() {
-    const isRemove = (
+    const isRemove =
       // 匿名希望かつ、コメント数が75文字を超える
-      this.comment.length > 75 && this.command.has('184') ||
+      (this.comment.length > 75 && this.command.has('184')) ||
       // スレッドキーが必要な動画
       this.isNeedsKey
-    );
 
     if (isRemove) {
-      this.command.delete('184');
+      this.command.delete('184')
     }
   }
 }
 
-
 function validateThreadResult(type, resultCode) {
-  let codeList = (type === 'post') ? threadPostResultCode : threadFetchResultCode;
+  let codeList = type === 'post' ? threadPostResultCode : threadFetchResultCode
 
   if (resultCode !== 0) {
-    const code = codeList.find(item => {
-      return resultCode === item.code;
-    });
+    const code = codeList.find((item) => {
+      return resultCode === item.code
+    })
 
-    throw new Error(code.key);
+    throw new Error(code.key)
   }
 }
 
 export default {
   comment: ValidateComment,
   command: ValidateCommand,
-  threadResult: validateThreadResult
-};
+  threadResult: validateThreadResult,
+}

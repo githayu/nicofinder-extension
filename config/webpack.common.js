@@ -1,40 +1,34 @@
-const path = require('path');
-const webpack = require('webpack');
-const ExtractTextPlugin = require('extract-text-webpack-plugin');
-const HtmlWebpackPlugin = require('html-webpack-plugin');
+const path = require('path')
+const webpack = require('webpack')
+const ExtractTextPlugin = require('extract-text-webpack-plugin')
+const HtmlWebpackPlugin = require('html-webpack-plugin')
 
 const Entries = {
   vendor: {
     name: 'vendor',
-    path: [
-      'react',
-      'react-dom',
-      'lodash',
-      'prop-types',
-      './src/js/vendor'
-    ]
+    path: ['react', 'react-dom', 'lodash', 'prop-types', './src/js/vendor'],
   },
   background: {
     name: 'background',
-    path: './src/js/background'
+    path: './src/js/background',
   },
   popup: {
     name: 'popup',
-    path: './src/js/Popup/Popup'
+    path: './src/js/Popup/Popup',
   },
   options: {
     name: 'options',
-    path: './src/js/Options/Options'
+    path: './src/js/Options/Options',
   },
   contentWatch: {
     name: 'content-scripts/watch',
-    path: './src/js/content-scripts/watch'
+    path: './src/js/content-scripts/watch',
   },
   contentQueueManager: {
     name: 'content-scripts/queue-manager',
-    path: './src/js/content-scripts/queue-manager'
-  }
-};
+    path: './src/js/content-scripts/queue-manager',
+  },
+}
 
 const HtmlWebpackPluginConfig = {
   title: 'Nicofinder',
@@ -46,60 +40,57 @@ const HtmlWebpackPluginConfig = {
     removeStyleLinkTypeAttributes: true,
     minifyCSS: true,
     minifyJS: true,
-    decodeEntities: true
-  }
-};
+    decodeEntities: true,
+  },
+}
 
 const HtmlWebpackPluginEntries = [
   {
     filename: 'html/options.html',
     template: 'src/html/template.html',
-    chunks: [
-      Entries.vendor.name,
-      Entries.options.name
-    ]
+    chunks: [Entries.vendor.name, Entries.options.name],
   },
   {
     filename: 'html/popup.html',
     template: 'src/html/template.html',
-    chunks: [
-      Entries.vendor.name,
-      Entries.popup.name
-    ]
-  }
-];
+    chunks: [Entries.vendor.name, Entries.popup.name],
+  },
+]
 
 module.exports = {
   entry: Object.values(Entries).reduce((previous, current) => {
-    previous[current.name] = current.path;
-    return previous;
+    previous[current.name] = current.path
+    return previous
   }, {}),
 
   output: {
     publicPath: '/',
     filename: 'js/[name].js',
-    path: path.resolve(__dirname, '../dist/')
+    path: path.resolve(__dirname, '../dist/'),
   },
 
   resolve: {
     alias: {
-      src: path.resolve(__dirname, '../src/')
+      src: path.resolve(__dirname, '../src/'),
     },
 
-    extensions: ['.js', '.jsx', '.json']
+    extensions: ['.js', '.jsx', '.json'],
+  },
+
+  optimization: {
+    splitChunks: {
+      name: Entries.vendor.name,
+      chunks: 'initial',
+    },
   },
 
   plugins: [
-    new webpack.optimize.CommonsChunkPlugin({
-      name: Entries.vendor.name,
-      minChunks: Infinity
-    }),
-
     new ExtractTextPlugin('css/[name].css'),
 
-    ...HtmlWebpackPluginEntries.map(entry =>
-      new HtmlWebpackPlugin(Object.assign({}, HtmlWebpackPluginConfig, entry))
-    )
+    ...HtmlWebpackPluginEntries.map(
+      (entry) =>
+        new HtmlWebpackPlugin(Object.assign({}, HtmlWebpackPluginConfig, entry))
+    ),
   ],
 
   module: {
@@ -107,7 +98,7 @@ module.exports = {
       {
         test: /\.jsx?$/,
         loader: 'babel-loader',
-        exclude: /node_modules/
+        exclude: /node_modules/,
       },
       {
         test: /\.module\.scss$/,
@@ -118,12 +109,12 @@ module.exports = {
             options: {
               minimize: true,
               modules: true,
-              localIdentName: '[folder]-[md5:hash:hex:10]'
-            }
+              localIdentName: '[folder]-[md5:hash:hex:10]',
+            },
           },
           'postcss-loader',
-          'sass-loader'
-        ]
+          'sass-loader',
+        ],
       },
       {
         test: /^(?!.*\.module\.scss)(?=.*\.scss).*$/,
@@ -133,14 +124,14 @@ module.exports = {
             {
               loader: 'css-loader',
               options: {
-                minimize: true
-              }
+                minimize: true,
+              },
             },
             'postcss-loader',
-            'sass-loader'
-          ]
-        })
-      }
-    ]
-  }
+            'sass-loader',
+          ],
+        }),
+      },
+    ],
+  },
 }
