@@ -1,8 +1,18 @@
+// @flow
+
 import FetchThreads from './FetchThreads'
 import { fetchWaybackkey, fetchUserId, fetchThreadkey } from 'js/niconico/api'
 
-export default async function fetchPastThreads(req, sendResponse) {
-  const { groupType, thread } = req
+export default async function fetchPastThreads(
+  {
+    groupType,
+    thread,
+  }: {
+    groupType: string,
+    thread: any,
+  },
+  sendResponse: (any) => void
+) {
   const mainThreadId = thread[`${groupType}ThreadId`]
 
   // UserID
@@ -17,12 +27,9 @@ export default async function fetchPastThreads(req, sendResponse) {
   }
 
   // Waybackkey
-  const { waybackkey } = await fetchWaybackkey(
-    {
-      thread: mainThreadId,
-    },
-    true
-  )
+  const { waybackkey } = await fetchWaybackkey({
+    thread: mainThreadId,
+  })
 
   // Threads
   const threads = await new FetchThreads({
