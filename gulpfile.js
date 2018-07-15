@@ -34,7 +34,7 @@ gulp.task('json', () =>
         isDev,
         mergeJSON({
           fileName: 'manifest.json',
-          edit: (json, file) => Object.assign({}, json, manifestDevConfig),
+          edit: (json) => Object.assign({}, json, manifestDevConfig),
         })
       )
     )

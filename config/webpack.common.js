@@ -1,12 +1,18 @@
 const path = require('path')
-const webpack = require('webpack')
 const ExtractTextPlugin = require('extract-text-webpack-plugin')
 const HtmlWebpackPlugin = require('html-webpack-plugin')
 
 const Entries = {
   vendor: {
     name: 'vendor',
-    path: ['react', 'react-dom', 'lodash', 'prop-types', './src/js/vendor'],
+    path: [
+      'react',
+      'react-dom',
+      'lodash',
+      'prop-types',
+      './src/js/utils',
+      './src/js/config',
+    ],
   },
   background: {
     name: 'background',
@@ -71,7 +77,7 @@ module.exports = {
 
   resolve: {
     alias: {
-      src: path.resolve(__dirname, '../src/'),
+      js: path.resolve(__dirname, '../src/js/'),
     },
 
     extensions: ['.js', '.jsx', '.json'],

@@ -1,0 +1,18 @@
+[ignore]
+
+[include]
+
+[libs]
+
+[lints]
+
+[options]
+esproposal.optional_chaining=enable
+suppress_comment= \\(.\\|\n\\)*\\flow-disable-line
+module.name_mapper='^js' ->'<PROJECT_ROOT>/src/js'
+module.name_mapper='^flow-typed' ->'<PROJECT_ROOT>/flow-typed'
+module.file_ext=.js
+module.file_ext=.css
+module.file_ext=.scss
+
+[strict]

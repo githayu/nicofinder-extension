@@ -1,7 +1,33 @@
-import { regExpItems } from './config'
+// @flow
+
+import { isPlainObject } from 'lodash'
+
+type FetchClientRequest = {
+  url: string,
+  qs?: {
+    [string]: string | number,
+  },
+  request?: any,
+  responseType: 'arrayBuffer' | 'blob' | 'formData' | 'json' | 'text',
+}
+
+type XHRClientRequest = {
+  url: string,
+  qs?: {
+    [string]: string | number,
+  },
+  body?: any,
+  headers?: { [string]: string },
+  timeout?: number,
+  async?: boolean,
+  withCredentials?: boolean,
+  responseType?: '' | 'arraybuffer' | 'blob' | 'document' | 'json' | 'text',
+}
 
 export class DetailURL {
-  constructor(url) {
+  url: URL
+
+  constructor(url: string) {
     try {
       this.url = new URL(url)
     } catch (e) {
@@ -40,7 +66,7 @@ export class DetailURL {
     }
   }
 
-  hasDir(...req) {
+  hasDir(...req: string[]) {
     return req.includes(this.getContentDir())
   }
 
@@ -66,11 +92,11 @@ export class Utils {
     )
   }
 
-  static isDecimalNumber(string) {
+  static isDecimalNumber(string: string) {
     return /^(?!0)\d+$/.test(string)
   }
 
-  static decodeURLParams(paramsString) {
+  static decodeURLParams(paramsString: string): Object {
     const searchParams = new URLSearchParams(paramsString)
 
     const resultParams = Array.from(searchParams).reduce(
@@ -84,126 +110,63 @@ export class Utils {
     return resultParams
   }
 
-  static async fetch(options) {
-    const url = new URL(options.url)
-
-    if (options.hasOwnProperty('qs')) {
-      Object.entries(options.qs).forEach(([name, value]) =>
-        url.searchParams.append(name, value)
+  static async fetch({
+    viaBackground,
+    request,
+  }: {
+    viaBackground: boolean,
+    request: FetchClientRequest,
+  }) {
+    if (viaBackground) {
+      const res = await new Promise((resolve) =>
+        chrome.runtime.sendMessage(
+          {
+            type: 'backgroundFetch',
+            payload: request,
+          },
+          resolve
+        )
       )
+
+      if (res?.error) {
+        return Promise.reject(new Error(res.message))
+      }
+
+      return res
+    } else {
+      return fetchClient(request).catch((err) => Promise.reject(err))
     }
-
-    if (
-      options.request.hasOwnProperty('body') &&
-      toString.call(options.request.body).includes('Object')
-    ) {
-      const formData = new FormData()
-
-      Object.entries(options.request.body).forEach(([name, value]) =>
-        formData.append(name, value)
-      )
-
-      options.request.body = formData
-    }
-
-    const request = new Request(url, options.request)
-    const response = await fetch(request)
-
-    if (!response.ok) {
-      return Promise.reject(new Error('Fetch Error'))
-    }
-
-    return Promise.resolve(await response[options.responseType]())
   }
 
-  /**
-   * @param {Object} request
-   * @param {String} request.method
-   * @param {String} request.url
-   * @param {String} request.responseType
-   * @param {Object} request.qs
-   * @param {Object} request.headers
-   * @param {Object|FormData} request.body
-   * @param {Number} request.timeout
-   * @param {Boolean} request.async
-   * @param {Boolean} request.withCredentials
-   */
-  static xhr(request) {
-    return new Promise((resolve, reject) => {
-      const defaultRequest = {
-        method: 'GET',
-        async: true,
-        withCredentials: false,
-      }
-
-      const xhr = new XMLHttpRequest()
-      const url = new URL(request.url)
-      let formData = new FormData()
-
-      request = Object.assign({}, defaultRequest, request)
-
-      if (request.hasOwnProperty('qs')) {
-        Object.entries(request.qs).forEach(([name, value]) =>
-          url.searchParams.append(name, value)
+  static async XHR({
+    viaBackground,
+    request,
+  }: {
+    viaBackground: boolean,
+    request: XHRClientRequest,
+  }) {
+    if (viaBackground) {
+      const res = await new Promise((resolve) =>
+        chrome.runtime.sendMessage(
+          {
+            type: 'backgroundXHR',
+            payload: request,
+          },
+          resolve
         )
+      )
+
+      if (res?.error) {
+        Promise.reject(new Error(res.message))
       }
 
-      if (request.hasOwnProperty('body')) {
-        const type = toString.call(request.body)
-
-        if (type.includes('Object')) {
-          Object.entries(request.body).forEach(([name, value]) =>
-            formData.append(name, value)
-          )
-        } else {
-          formData = request.body
-        }
-      }
-
-      xhr.open(request.method, url, request.async)
-
-      if (request.hasOwnProperty('headers')) {
-        Object.entries(request.headers).forEach(([name, value]) =>
-          xhr.setRequestHeader(name, value)
-        )
-      }
-
-      if (request.hasOwnProperty('timeout')) {
-        xhr.timeout = request.timeout
-      }
-
-      xhr.withCredentials = request.withCredentials
-
-      xhr.onload = () => {
-        if (/^2\d{2}$/.test(xhr.status)) {
-          switch (request.responseType) {
-            case 'xml':
-              resolve(xhr.responseXML)
-              break
-
-            case 'json':
-              resolve(JSON.parse(xhr.responseText))
-              break
-
-            default:
-              resolve(xhr.responseText)
-          }
-        } else {
-          reject(new Error(`XHR HTTP Error: ${xhr.status}`))
-        }
-
-        xhr.abort()
-      }
-
-      xhr.onerror = (err) => reject(new Error(err.message))
-
-      xhr.ontimeout = () => reject(new Error('XHR Timeout'))
-
-      xhr.send(formData)
-    })
+      return res
+    } else {
+      return XHRClient(request).catch((err) => Promise.reject(err))
+    }
   }
 
-  static xmlChildrenParser(collections) {
+  static xmlChildrenParser(collections: any): any {
     var currentData = {}
 
     for (let children of collections) {
@@ -253,4 +216,103 @@ export class Utils {
 
     return currentData
   }
+}
+
+/**
+ * Fetch
+ */
+export async function fetchClient(options: FetchClientRequest) {
+  const url = new URL(options.url)
+  const { request, responseType } = options
+
+  if (options.qs) {
+    Object.entries(options.qs).forEach(([name, value]) =>
+      url.searchParams.append(name, String(value))
+    )
+  }
+
+  if (request && isPlainObject(request?.body)) {
+    const formData = new FormData()
+
+    Object.entries(request?.body).forEach(([name, value]) =>
+      formData.append(name, String(value))
+    )
+
+    request.body = formData
+  }
+
+  const response = await fetch(new Request(url, options.request))
+
+  if (!response.ok) {
+    return Promise.reject(new Error(response.statusText))
+  }
+
+  // flow-disable-line
+  return response[responseType]()
+}
+
+/**
+ * XHR
+ */
+export function XHRClient(request: XHRClientRequest) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    const url = new URL(request.url)
+    let formData = new FormData()
+
+    request = {
+      method: 'GET',
+      async: true,
+      withCredentials: false,
+      responseType: '',
+      ...request,
+    }
+
+    if (request.hasOwnProperty('qs')) {
+      Object.entries(request.qs).forEach(([name, value]) =>
+        url.searchParams.append(name, String(value))
+      )
+    }
+
+    if (request.hasOwnProperty('body')) {
+      if (isPlainObject(request.body)) {
+        Object.entries(request.body).forEach(([name, value]) =>
+          formData.append(name, String(value))
+        )
+      } else {
+        formData = request.body
+      }
+    }
+
+    xhr.open(request.method, url.href, request.async)
+
+    if (request.hasOwnProperty('headers')) {
+      Object.entries(request.headers).forEach(([name, value]) =>
+        xhr.setRequestHeader(name, String(value))
+      )
+    }
+
+    if (request.timeout) {
+      xhr.timeout = request.timeout
+    }
+
+    xhr.withCredentials = request.withCredentials || false
+    xhr.responseType = request.responseType || ''
+
+    xhr.onload = () => {
+      if (/^2\d{2}$/.test(`${xhr.status}`)) {
+        resolve(xhr.response)
+      } else {
+        reject(new Error('XHR HTTP'))
+      }
+
+      xhr.abort()
+    }
+
+    xhr.onerror = (err) => reject(new Error(err))
+
+    xhr.ontimeout = () => reject(new Error('XHR Timeout'))
+
+    xhr.send(formData)
+  })
 }

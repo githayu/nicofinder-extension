@@ -1,10 +1,29 @@
+// @flow
+
 import React from 'react'
 import ReactDOM from 'react-dom'
-import { defaultStorage } from 'src/js/config'
+import { defaultStorage } from 'js/config'
 import styles from './Options.module.scss'
-import 'src/styles/common.scss'
+import '../../styles/common.scss'
 
-export default class Options extends React.Component {
+type Props = {
+  options: {
+    type: string,
+    title: string,
+    class: string,
+    items: {
+      name: string,
+      value: string,
+      label: string,
+    }[],
+  }[],
+}
+
+type State = {
+  storage: {},
+}
+
+export default class Options extends React.Component<Props, State> {
   static defaultProps = {
     options: [
       {
@@ -27,20 +46,18 @@ export default class Options extends React.Component {
     ],
   }
 
+  state = {
+    storage: null,
+  }
+
   constructor() {
     super()
 
-    this.state = {
-      storage: null,
-    }
-  }
-
-  componentWillMount() {
     chrome.storage.local.get(defaultStorage.extension.local, (storage) => {
       this.setState({ storage })
     })
 
-    chrome.storage.onChanged.addListener((changes, namespace) => {
+    chrome.storage.onChanged.addListener((changes) => {
       let newStorage = {}
 
       for (let name in changes) {
@@ -111,11 +128,11 @@ export default class Options extends React.Component {
     if (!this.state.storage) return
 
     return options.map((option) => (
-      <li className={option.class}>
+      <li className={option.class} key={`options-${option.type}`}>
         <h2>{option.title}</h2>
 
         {option.items.map((item) => (
-          <label>
+          <label key={`options-item-${item.name}`}>
             <input
               type="checkbox"
               name={item.name}
@@ -136,4 +153,4 @@ export default class Options extends React.Component {
   }
 }
 
-ReactDOM.render(React.createElement(Options), document.getElementById('app'))
+ReactDOM.render(<Options />, document.getElementById('app'))

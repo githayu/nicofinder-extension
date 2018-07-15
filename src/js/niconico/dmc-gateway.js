@@ -1,5 +1,14 @@
+// @flow
+
+import type { SessionApi } from 'js/types'
+
 export default class DMCGateway {
-  constructor(dmcInfo) {
+  dmcInfo: SessionApi
+  session: any
+  storyboard: any
+  continuousId: any
+
+  constructor(dmcInfo: SessionApi) {
     this.dmcInfo = dmcInfo
   }
 
@@ -8,15 +17,23 @@ export default class DMCGateway {
   }
 
   get getSessionURL() {
-    return new URL(`${this.getEndpointURL}/${this.session.id}`)
+    return new URL(`${this.getEndpointURL.href}/${this.session.id}`)
   }
 
-  async startSession(request = {}) {
+  async startSession(request: RequestOptions = {}) {
     await this.postSession(request)
 
-    this.continuousId = setInterval(() => this.updateSession(), 20000)
+    if (this.session.content_id.startsWith('sb_out')) {
+      const { data: sbData = null } = await this.fetchSession(
+        this.session.content_uri
+      ).catch(() => ({}))
 
-    return Promise.resolve(this.session)
+      this.storyboard = sbData
+    } else {
+      this.continuousId = setInterval(() => this.updateSession(), 20000)
+    }
+
+    return this.session
   }
 
   async deleteSession() {
@@ -32,7 +49,7 @@ export default class DMCGateway {
 
     clearInterval(this.continuousId)
     this.session = null
-    return Promise.resolve(response)
+    return response
   }
 
   async updateSession() {
@@ -47,10 +64,10 @@ export default class DMCGateway {
     })
 
     this.session = response.data.session
-    return Promise.resolve(response)
+    return response
   }
 
-  async postSession(request = {}) {
+  async postSession(request: RequestOptions = {}) {
     const url = this.getEndpointURL
     url.searchParams.append('_format', 'json')
 
@@ -60,10 +77,11 @@ export default class DMCGateway {
     })
 
     this.session = response.data.session
-    return Promise.resolve(response)
+
+    return response
   }
 
-  async fetchSession(url, request) {
+  async fetchSession(url: URL, request: RequestOptions = {}) {
     const defaultRequest = {
       headers: new Headers({
         'Content-Type': 'application/json',
@@ -76,17 +94,16 @@ export default class DMCGateway {
     )
 
     if (!response.ok) {
-      console.error(response)
       clearInterval(this.continuousId)
       return Promise.reject(new Error('Dmc Session'))
     }
 
     const result = await response.json()
 
-    return Promise.resolve(result)
+    return result
   }
 
-  createSessionRequest(request = {}) {
+  createSessionRequest(request: RequestOptions = {}) {
     const {
       player_id,
       content_id,
@@ -99,9 +116,38 @@ export default class DMCGateway {
       videos,
       signature,
       token,
-      protocols,
+      transfer_presets,
       priority,
     } = Object.assign({}, this.dmcInfo, request)
+
+    const isStoryboard = content_id.startsWith('sb_out1')
+    const authType = isStoryboard ? auth_types.storyboard : auth_types.http
+    const contentType = isStoryboard ? 'video' : 'movie'
+    const contentSrcIds = isStoryboard
+      ? videos
+      : [
+          {
+            src_id_to_mux: {
+              audio_src_ids: audios,
+              video_src_ids: videos,
+            },
+          },
+        ]
+
+    const parameters = isStoryboard
+      ? {
+          storyboard_download_parameters: {
+            use_ssl: 'yes',
+            use_well_known_port: 'no',
+          },
+        }
+      : {
+          http_output_download_parameters: {
+            transfer_preset: transfer_presets[0],
+            use_ssl: 'yes',
+            use_well_known_port: 'no',
+          },
+        }
 
     return {
       session: {
@@ -109,26 +155,18 @@ export default class DMCGateway {
           player_id: player_id,
         },
         content_auth: {
-          auth_type: auth_types.http,
+          auth_type: authType,
           content_key_timeout: content_key_timeout,
-          max_content_count: 10,
           service_id: 'nicovideo',
           service_user_id: service_user_id,
         },
         content_id: content_id,
         content_src_id_sets: [
           {
-            content_src_ids: [
-              {
-                src_id_to_mux: {
-                  audio_src_ids: audios,
-                  video_src_ids: videos,
-                },
-              },
-            ],
+            content_src_ids: contentSrcIds,
           },
         ],
-        content_type: 'movie',
+        content_type: contentType,
         content_uri: '',
         keep_method: {
           heartbeat: {
@@ -137,15 +175,10 @@ export default class DMCGateway {
         },
         priority: priority,
         protocol: {
-          name: protocols[0],
+          name: 'http',
           parameters: {
             http_parameters: {
-              method: 'GET',
-              parameters: {
-                http_output_download_parameters: {
-                  file_extension: 'mp4',
-                },
-              },
+              parameters: parameters,
             },
           },
         },

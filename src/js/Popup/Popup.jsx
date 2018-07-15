@@ -1,10 +1,8 @@
 import React from 'react'
 import ReactDOM from 'react-dom'
-import PropTypes from 'prop-types'
-
-import { Utils, DetailURL } from 'src/js/utils'
+import { Utils, DetailURL } from 'js/utils'
 import styles from './Popup.module.scss'
-import 'src/styles/common.scss'
+import '../../styles/common.scss'
 
 class Popup extends React.Component {
   state = {
@@ -59,7 +57,7 @@ class Popup extends React.Component {
   }
 
   backendRequest(req) {
-    return new Promise((resolve, reject) =>
+    return new Promise((resolve) =>
       chrome.runtime.sendMessage(req, (res) => resolve(res))
     )
   }
@@ -73,17 +71,46 @@ class Popup extends React.Component {
   get getThumbnailUrl() {
     const { contentData } = this.state
 
-    if (contentData === null) {
-      return
-    } else if (contentData?.video?.options?.['@large_thumbnail'] == 1) {
+    if (contentData?.video?.options?.['@large_thumbnail'] == 1) {
       return `${contentData.video.thumbnail_url}.L`
     } else if (contentData?.video?.thumbnail_url) {
       return contentData.video.thumbnail_url
+    } else {
+      return null
     }
   }
 
   render() {
     const { serviceId, contentId, contentData, isRedirect } = this.state
+
+    let lists = null
+
+    if (serviceId === 'watch') {
+      const watchUrl = `http://www.nicofinder.net/watch/${contentId}`
+      const commentUrl = `http://www.nicofinder.net/comment/${contentId}`
+
+      lists = (
+        <>
+          <a href={watchUrl} onClick={() => this.changeLocation(watchUrl)}>
+            <i className="material-icons">play_circle_filled</i>
+            Nicofinderで視聴
+          </a>
+          <a href={commentUrl} target="_blank" rel="noopener noreferrer">
+            <i className="material-icons">comment</i>
+            コメント解析を開く
+          </a>
+        </>
+      )
+    } else if (serviceId === 'mylist') {
+      const myListUrl = `http://www.nicofinder.net/mylist/${contentId}`
+
+      lists = (
+        <a href={myListUrl} onClick={() => this.changeLocation(myListUrl)}>
+          <i className="material-icons">open_in_new</i>
+          Nicofinderで開く
+        </a>
+      )
+    }
 
     return (
       <>
@@ -119,34 +146,7 @@ class Popup extends React.Component {
             />
           </header>
 
-          {do {
-            if (serviceId === 'watch') {
-              const watchUrl = `http://www.nicofinder.net/watch/${contentId}`
-              const commentUrl = `http://www.nicofinder.net/comment/${contentId}`
-              ;<>
-                <a
-                  href={watchUrl}
-                  onClick={() => this.changeLocation(watchUrl)}
-                >
-                  <i className="material-icons">play_circle_filled</i>
-                  Nicofinderで視聴
-                </a>
-                <a href={commentUrl} target="_blank">
-                  <i className="material-icons">comment</i>
-                  コメント解析を開く
-                </a>
-              </>
-            } else if (serviceId === 'mylist') {
-              const myListUrl = `http://www.nicofinder.net/mylist/${contentId}`
-              ;<a
-                href={myListUrl}
-                onClick={() => this.changeLocation(myListUrl)}
-              >
-                <i className="material-icons">open_in_new</i>
-                Nicofinderで開く
-              </a>
-            }
-          }}
+          {lists}
         </nav>
       </>
     )

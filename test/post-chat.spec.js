@@ -1,6 +1,8 @@
+/* eslint-disable */
+
 import 'babel-polyfill'
 import assert from 'power-assert'
-import { ValidateChat } from '../src/js/niconico/'
+import { ValidateChat } from 'js/niconico'
 
 describe('コメント投稿フォーマットテスト', () => {
   it('空白コメントは無効', () => {

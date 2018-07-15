@@ -5,7 +5,7 @@ export const baseURL = {
   nicoapi: {
     getflv: 'https://flapi.nicovideo.jp/api/getflv',
     getWaybackkey: 'https://flapi.nicovideo.jp/api/getwaybackkey',
-    getThreadkey: 'http://flapi.nicovideo.jp/api/getthreadkey',
+    getThreadkey: 'https://flapi.nicovideo.jp/api/getthreadkey',
     videoInfo: 'https://api.ce.nicovideo.jp/nicoapi/v1/video.info',
     recoadPlaybackPosition:
       'https://flapi.nicovideo.jp/api/record_current_playback_position',

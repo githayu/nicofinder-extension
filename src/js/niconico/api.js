@@ -1,30 +1,43 @@
-import { Utils } from '../utils'
-import { baseURL } from '../config'
+// @flow
+
+import { Utils } from 'js/utils'
+import { baseURL } from 'js/config'
+import { isNil } from 'lodash'
 
 /**
  * WatchAPIを取得する
- * @param {Object}  request
- * @param {String}  request.watchId
- * @param {String}  request.playlistToken
- * @param {Boolean} request.isEconomy
  */
-export async function fetchWatchAPI(request) {
-  const eco = request.isEconomy ? 1 : 0
+export async function fetchWatchAPI(
+  {
+    watchId,
+    playlistToken,
+    isEconomy,
+  }: {
+    watchId: string,
+    playlistToken: string,
+    isEconomy: boolean,
+  },
+  viaBackground: boolean = false
+) {
+  const eco = isEconomy ? 1 : 0
 
   return await Utils.fetch({
-    url: `http://www.nicovideo.jp/watch/${request.watchId}`,
-    responseType: 'json',
-    qs: {
-      mode: 'pc_html5',
-      eco: eco,
-      playlist_token: request.playlistToken,
-      watch_harmful: 2,
-      continue_watching: 1,
-    },
+    viaBackground,
     request: {
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
+      url: `http://www.nicovideo.jp/watch/${watchId}`,
+      responseType: 'json',
+      qs: {
+        mode: 'pc_html5',
+        eco: eco,
+        playlist_token: playlistToken,
+        watch_harmful: 2,
+        continue_watching: 1,
+      },
+      request: {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
       },
     },
   })
@@ -32,58 +45,89 @@ export async function fetchWatchAPI(request) {
 
 /**
  * WatchHTMLを取得する
- * @param {Object}  request
- * @param {String}  request.watchId
- * @param {Boolean} request.isEconomy
  */
-export async function fetchWatchHTML(request) {
-  const eco = request.isEconomy ? 1 : 0
-
-  const watchHTML = await Utils.fetch({
-    url: `http://www.nicovideo.jp/watch/${request.watchId}`,
-    request: { credentials: 'include' },
-    responseType: 'text',
-    qs: {
-      watch_harmful: 1,
-      eco: eco,
+export function fetchWatchHTML(
+  {
+    isEconomy,
+    watchId,
+  }: {
+    isEconomy: boolean,
+    watchId: string,
+  },
+  viaBackground: boolean = false
+) {
+  return Utils.fetch({
+    viaBackground,
+    request: {
+      url: `http://www.nicovideo.jp/watch/${watchId}`,
+      request: { credentials: 'include' },
+      responseType: 'text',
+      qs: {
+        watch_harmful: 1,
+        eco: isEconomy ? 1 : 0,
+      },
     },
   })
-
-  return new DOMParser().parseFromString(watchHTML, 'text/html')
+    .then((watchHTML) =>
+      new DOMParser().parseFromString(watchHTML, 'text/html')
+    )
+    .catch((err) => Promise.reject(err))
 }
 
 /**
  * Storyboardを取得する
- * @param {string} url
  */
-export async function fetchStoryboard(url) {
-  const response = await Utils.xhr({
-    url: url,
-    qs: { sb: 1 },
-    withCredentials: true,
-    responseType: 'xml',
-    headers: {
-      'Content-Type': 'application/xml',
+export async function fetchStoryboard(
+  url: string,
+  viaBackground: boolean = false
+) {
+  const response = await Utils.XHR({
+    viaBackground,
+    request: {
+      url: url,
+      qs: { sb: 1 },
+      withCredentials: true,
+      headers: {
+        'Content-Type': 'application/xml',
+      },
     },
-  })
+  }).catch(() => false)
 
-  const storyboardResult = Utils.xmlChildrenParser(response.children)
+  if (!response) return null
 
-  if (storyboardResult.smile.status === 'ok') {
+  const parser = new DOMParser()
+  const xml = parser.parseFromString(response, 'application/xml')
+  const storyboardResult = Utils.xmlChildrenParser(xml.children)
+
+  if (storyboardResult?.smile?.status === 'ok') {
     return storyboardResult.smile
+  } else {
+    return null
   }
 }
 
 /**
  * FlvInfoを取得する
- * @param {Object} params
  */
-export async function fetchFlvInfo(params) {
+export async function fetchFlvInfo(
+  params: {
+    v: string,
+    eco?: number,
+    is_https?: number,
+    [string]: string | number,
+  },
+  viaBackground: boolean = false
+) {
   const paramsString = await Utils.fetch({
-    url: baseURL.nicoapi.getflv,
-    qs: params,
-    request: { credentials: 'include' },
-    responseType: 'text',
+    viaBackground,
+    request: {
+      url: baseURL.nicoapi.getflv,
+      qs: {
+        ...params,
+      },
+      request: { credentials: 'include' },
+      responseType: 'text',
+    },
   })
 
   return Utils.decodeURLParams(paramsString)
@@ -91,167 +135,214 @@ export async function fetchFlvInfo(params) {
 
 /**
  * waybackkeyを取得する
- *
- * @export
- * @param {{thread: number}} params
- * @returns
  */
-export function fetchWaybackkey(params) {
+export function fetchWaybackkey(params: any, viaBackground: boolean = false) {
   return Utils.fetch({
-    url: baseURL.nicoapi.getWaybackkey,
+    viaBackground,
     request: {
-      method: 'POST',
-      credentials: 'include',
-      body: params,
+      url: baseURL.nicoapi.getWaybackkey,
+      request: {
+        method: 'POST',
+        credentials: 'include',
+        body: params,
+      },
+      responseType: 'text',
     },
-    responseType: 'text',
   }).then((res) => Utils.decodeURLParams(res))
 }
 
 /**
- * 同期通信で再生終了時間を記録する
- * @param {String} watchId
- * @param {String} playbackPosition
- * @param {Srting} CSRFToken
+ * 再生終了時間を記録する
  */
-export async function recoadPlaybackPosition(
-  watchId,
-  playbackPosition,
-  CSRFToken
-) {
-  return await Utils.xhr({
-    url: baseURL.nicoapi.recoadPlaybackPosition,
-    method: 'POST',
-    async: false,
-    responseType: 'json',
-    withCredentials: true,
-    body: {
-      watch_id: watchId,
-      playback_position: playbackPosition,
-      csrf_token: CSRFToken,
+export function recoadPlaybackPosition(
+  {
+    watchId,
+    playbackPosition,
+    CSRFToken,
+  }: {
+    watchId: string,
+    playbackPosition: number,
+    CSRFToken: string,
+  },
+  viaBackground: boolean = false
+): Promise<{
+  user_id: number,
+  watch_id: string,
+  playback_position: number,
+  status: string,
+}> {
+  return Utils.XHR({
+    viaBackground,
+    request: {
+      url: baseURL.nicoapi.recoadPlaybackPosition,
+      method: 'POST',
+      responseType: 'json',
+      withCredentials: true,
+      body: {
+        watch_id: watchId,
+        playback_position: playbackPosition,
+        csrf_token: CSRFToken,
+      },
     },
   })
 }
 
 /**
  * 動画情報を取得する
- * @param  {String} videoId
  */
-export function fetchVideoInfo(videoId) {
+export function fetchVideoInfo(
+  videoId: string,
+  viaBackground: boolean = false
+) {
   return Utils.fetch({
-    url: baseURL.nicoapi.videoInfo,
+    viaBackground,
     request: {
-      method: 'POST',
-      body: {
-        v: videoId,
-        __format: 'json',
+      url: baseURL.nicoapi.videoInfo,
+      request: {
+        method: 'POST',
+        body: {
+          v: videoId,
+          __format: 'json',
+        },
       },
+      responseType: 'json',
     },
-    responseType: 'json',
   })
 }
 
 /**
  * マイリストグループの新規作成
- * @param  {String} request.userSession
- * @param  {String} request.name
- * @param  {String} request.description
- * @param  {Number} request.defaultSort
- * @param  {Number} request.isPublic
  */
-export function createMyListGroup(request) {
-  const defaultRequest = {
-    description: '',
-    defaultSort: 0, // 登録が古い順
-    isPublic: 0,
-  }
-
-  request = Object.assign({}, defaultRequest, request)
-
+export function createMyListGroup(
+  {
+    userSession,
+    name,
+    description = '',
+    defaultSort = 0,
+    isPublic = 0,
+  }: {
+    userSession: string,
+    name: string,
+    description: string,
+    defaultSort?: number,
+    isPublic: number,
+  },
+  viaBackground: boolean = false
+) {
   return Utils.fetch({
-    url: baseURL.nicoapi.myListGroupAdd,
+    viaBackground,
     request: {
-      method: 'POST',
-      headers: {
-        'X-NICOVITA-SESSION': request.userSession,
+      url: baseURL.nicoapi.myListGroupAdd,
+      request: {
+        method: 'POST',
+        headers: {
+          'X-NICOVITA-SESSION': userSession,
+        },
+        body: {
+          __format: 'json',
+          default_sort: defaultSort,
+          description: description,
+          name: name,
+          public: isPublic,
+        },
       },
-      body: {
-        __format: 'json',
-        default_sort: request.defaultSort,
-        description: request.description,
-        name: request.name,
-        public: request.isPublic,
-      },
+      responseType: 'json',
     },
-    responseType: 'json',
   })
 }
 
 /**
  * マイリストにアイテムを追加
- * @param {String} request.userSession
- * @param {String} request.watchId
- * @param {Number} request.groupId
  */
-export function addItemMyList(request) {
-  const isDefList = request.groupId === 'defList'
-  const body = {
+export function addItemMyList(
+  {
+    userSession,
+    watchId,
+    groupId,
+    description,
+  }: {
+    userSession: string,
+    watchId: string,
+    description?: string,
+    groupId: number,
+  },
+  viaBackground: boolean = false
+) {
+  const isDefList = groupId === 'defList'
+  const body: {
+    [string]: string | number,
+  } = {
     __format: 'json',
-    v: request.watchId,
+    v: watchId,
   }
 
-  if (!isDefList) body.group_id = request.groupId
-  if (!_.isNil(request.description)) body.description = request.description
+  if (!isDefList) body.group_id = groupId
+  if (!isNil(description)) body.description = description
 
   return Utils.fetch({
-    url: isDefList ? baseURL.nicoapi.defListAdd : baseURL.nicoapi.myListAdd,
+    viaBackground,
     request: {
-      method: 'POST',
-      headers: {
-        'X-NICOVITA-SESSION': request.userSession,
+      url: isDefList ? baseURL.nicoapi.defListAdd : baseURL.nicoapi.myListAdd,
+      request: {
+        method: 'POST',
+        headers: {
+          'X-NICOVITA-SESSION': userSession,
+        },
+        body,
       },
-      body,
+      responseType: 'json',
     },
-    responseType: 'json',
   })
 }
 
 /**
  * マイリストグループリストの取得
  */
-export function fetchMyListGroupList() {
+export function fetchMyListGroupList(viaBackground: boolean = false) {
   return Utils.fetch({
-    url: baseURL.nicoapi.myListGroupList,
+    viaBackground,
     request: {
-      credentials: 'include',
+      url: baseURL.nicoapi.myListGroupList,
+      request: {
+        credentials: 'include',
+      },
+      responseType: 'json',
     },
-    responseType: 'json',
   })
 }
 
 /**
  * マイリストアイテムの取得
- * @param {string} request.groupId
  */
-export function fetchMyListItems(request) {
-  const isDefList = request.groupId === 'defList'
+export function fetchMyListItems(
+  {
+    groupId,
+  }: {
+    groupId: string,
+  },
+  viaBackground: boolean = false
+) {
+  const isDefList = groupId === 'defList'
 
   return Utils.fetch({
-    url: isDefList
-      ? baseURL.nicoapi.defListItemList
-      : baseURL.nicoapi.myListItemList,
+    viaBackground,
     request: {
-      method: 'POST',
-      credentials: 'include',
-      ...(isDefList
-        ? {}
-        : {
-            body: {
-              group_id: request.groupId,
-            },
-          }),
+      url: isDefList
+        ? baseURL.nicoapi.defListItemList
+        : baseURL.nicoapi.myListItemList,
+      request: {
+        method: 'POST',
+        credentials: 'include',
+        ...(isDefList
+          ? {}
+          : {
+              body: {
+                group_id: groupId,
+              },
+            }),
+      },
+      responseType: 'json',
     },
-    responseType: 'json',
   })
 }
 
@@ -261,37 +352,44 @@ export function fetchMyListItems(request) {
  * @export
  * @returns
  */
-export function fetchUserId() {
-  return Utils.fetch({
-    url: baseURL.nicoapi.getUserId,
+export async function fetchUserId(viaBackground: boolean = false) {
+  const res = await Utils.fetch({
+    viaBackground,
     request: {
-      credentials: 'include',
+      url: baseURL.nicoapi.getUserId,
+      request: {
+        credentials: 'include',
+      },
+      responseType: 'json',
     },
-    responseType: 'json',
-  }).then((res) => res?.data?.userId)
+  })
+
+  return res?.data?.userId
 }
 
 /**
  * Threadkeyの取得
- *
- * @export
- * @param {string|number} threadId
- * @returns {{threadkey:string,force_184:number}}
  */
-export async function fetchThreadkey(threadId) {
+export async function fetchThreadkey(
+  threadId: string | number,
+  viaBackground: boolean = false
+): Promise<{ threadkey: string, force_184: number }> {
   const formData = new FormData()
 
-  formData.append('thread', threadId)
+  formData.append('thread', String(threadId))
 
   // Cookieも送らないと正確なキーがもらえない
   const response = await Utils.fetch({
-    url: baseURL.nicoapi.getThreadkey,
+    viaBackground,
     request: {
-      method: 'POST',
-      body: formData,
-      credentials: 'include',
+      url: baseURL.nicoapi.getThreadkey,
+      request: {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      },
+      responseType: 'text',
     },
-    responseType: 'text',
   })
 
   const threadSecret = Utils.decodeURLParams(response)

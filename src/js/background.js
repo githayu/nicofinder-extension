@@ -1,11 +1,10 @@
-import { Utils, DetailURL } from './utils'
-import { baseURL, defaultStorage } from './config'
-import { fetchVideoInfo } from './niconico/api'
-import {
-  getNicoUserSession,
-  fetchPastThreads,
-  myListManager,
-} from 'src/js/scripts/'
+// @flow
+
+import { Utils, DetailURL } from 'js/utils'
+import { baseURL, defaultStorage } from 'js/config'
+import { fetchVideoInfo } from 'js/niconico/api'
+import { getNicoUserSession, fetchPastThreads, myListManager } from 'js/scripts'
+import { has } from 'lodash'
 
 class Background {
   static webRequestOptions = {
@@ -13,10 +12,11 @@ class Background {
     types: ['main_frame'],
   }
 
-  constructor() {
-    this.store = {}
-    this.redirectMap = new Map()
+  store = {}
+  redirectMap = new Map()
+  videoInfo = {}
 
+  constructor() {
     // 外部メッセージ
     chrome.runtime.onMessageExternal.addListener(
       (message, sender, sendResponse) => {
@@ -95,7 +95,7 @@ class Background {
     )
 
     // Storage change
-    chrome.storage.onChanged.addListener((changes, namespace) => {
+    chrome.storage.onChanged.addListener((changes) => {
       for (let name in changes) {
         this.store[name] = changes[name].newValue
       }
@@ -115,8 +115,14 @@ class Background {
         const detailURL = new DetailURL(info.linkUrl)
 
         if (detailURL.hasDir('watch')) {
-          const [response, tabs] = await Promise.all([
-            fetchVideoInfo(detailURL.getContentId()),
+          const id = detailURL.getContentId()
+
+          if (!id) {
+            return alert('コンテンツIDが見つかりません')
+          }
+
+          const [response, [tab]] = await Promise.all([
+            fetchVideoInfo(id),
             Utils.getActiveTabs(),
           ])
 
@@ -138,14 +144,14 @@ class Background {
             myListCount: Number(videoInfo.video.mylist_counter),
             published: Date.parse(videoInfo.video.first_retrieve),
             tags: videoInfo.tags.tag_info.map((tag) => {
-              tag: tag.tag
+              tag.tag
             }),
             thumbnailUrl: videoInfo.video.thumbnail_url,
             title: videoInfo.video.title,
             viewCount: Number(videoInfo.video.view_counter),
           }
 
-          chrome.tabs.sendMessage(tabs[0].id, {
+          chrome.tabs.sendMessage(tab.id, {
             type: 'appendQueue',
             payload: video,
           })
@@ -179,15 +185,16 @@ class Background {
       title: 'コメント解析を開く',
       type: 'normal',
       contexts: ['link'],
-      targetUrlPatterns: ['http://www.nicovideo.jp/watch/*'],
+      targetUrlPatterns: ['*://www.nicovideo.jp/watch/*'],
       onclick: (info) => {
         const detailURL = new DetailURL(info.linkUrl)
+        const id = detailURL.getContentId()
+
+        if (!id) return
 
         if (detailURL.isNiconico && detailURL.hasDir('watch')) {
           chrome.tabs.create({
-            url: `${
-              baseURL.nicofinder.top
-            }/comment/${detailURL.getContentId()}`,
+            url: `${baseURL.nicofinder.top}/comment/${id}`,
           })
         }
       },
@@ -196,30 +203,30 @@ class Background {
 
   messenger(request, sender, sendResponse) {
     switch (request.type) {
+      case 'backgroundFetch':
+      case 'backgroundXHR': {
+        const client =
+          request.type === 'backgroundXHR'
+            ? require('js/utils').XHRClient
+            : require('js/utils').fetchClient
+
+        client(request.payload)
+          .then(sendResponse)
+          .catch((err) =>
+            sendResponse({
+              error: true,
+              message: err.message,
+            })
+          )
+
+        return true
+      }
+
       case 'fetchVideoInfo': {
         fetchVideoInfo(request.payload).then((res) => {
           this.videoInfo = res.nicovideo_video_response
           sendResponse(res.nicovideo_video_response)
         })
-
-        return true
-      }
-
-      case 'isWatchFlash': {
-        chrome.cookies.getAll(
-          {
-            domain: 'nicovideo.jp',
-            name: 'watch_flash',
-          },
-          (cookies) => {
-            if (!cookies.length) {
-              sendResponse(false)
-            } else {
-              const isFlash = cookies[0].value === '1'
-              sendResponse(isFlash)
-            }
-          }
-        )
 
         return true
       }
@@ -231,7 +238,10 @@ class Background {
       }
 
       case 'notification': {
-        const n = new Notification(request.data.title, request.data.options)
+        const n = new window.Notification(
+          request.data.title,
+          request.data.options
+        )
         setTimeout(n.close.bind(n), 5000)
       }
     }
@@ -249,7 +259,7 @@ class Background {
       const contentDir = detailURL.getContentDir()
       const contentId = detailURL.getContentId()
 
-      if (detailURL.isNiconico) {
+      if (detailURL.isNiconico && contentDir && contentId) {
         if (detailURL.hasDir(...this.store.redirectList)) {
           let url = new URL(baseURL.nicofinder.top)
 
@@ -274,10 +284,7 @@ class Background {
         (item) => item.name === 'Referer'
       )
 
-      if (
-        referer !== undefined &&
-        redirectRequest.hasOwnProperty('redirectUrl')
-      ) {
+      if (referer !== undefined && has(redirectRequest, 'redirectUrl')) {
         let detailURL = new DetailURL(referer.value)
         let redirectCheck = [
           detailURL.url.hostname !== redirectRequest.detailURL.url.hostname,
@@ -296,7 +303,7 @@ class Background {
     if (this.store.redirect) {
       let redirectRequest = this.redirectMap.get(details.requestId)
 
-      if (redirectRequest.isRedirect) {
+      if (has(redirectRequest, 'isRedirect')) {
         return {
           redirectUrl: redirectRequest.redirectUrl,
         }

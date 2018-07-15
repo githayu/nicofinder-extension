@@ -1,10 +1,9 @@
-import _ from 'lodash'
-import { getNicoUserSession } from '../scripts'
+import { getNicoUserSession } from 'js/scripts'
 import {
   fetchMyListGroupList,
   fetchMyListItems,
   addItemMyList,
-} from '../niconico/api'
+} from 'js/niconico/api'
 
 export async function myListManager(req, sendResponse) {
   switch (req.type) {

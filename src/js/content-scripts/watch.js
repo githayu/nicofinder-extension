@@ -1,51 +1,49 @@
-import _ from 'lodash'
-import { Utils, DetailURL } from '../utils'
-import { LocalStorage } from '../nicofinder/'
-import { API, DMCGateway, PostChat } from '../niconico/'
+// @flow
+
+import { LocalStorage } from 'js/nicofinder'
+import { DMCGateway, PostChat } from 'js/niconico/'
+import * as API from 'js/niconico/api'
+import { has, get } from 'lodash'
+import type { WatchEnv, WatchInfo } from 'js/types/'
 
 class Watch {
+  session = null
+  storyboardSession = null
+  watchInfo: ?WatchInfo
+  watchEnv: ?WatchEnv
+  pageData = null
+  pageWatchInfo = null
+  storage = new LocalStorage()
+
   constructor() {
-    this.webAPI = {
-      videoInfo: null,
-      watchInfo: null,
-    }
-
-    this.nicoAPI = {
-      flvInfo: null,
-      watchInfo: null,
-      isFlash: false,
-    }
-
-    this.storage = new LocalStorage()
-
     // 外部リクエストの処理
-    chrome.runtime.onConnect.addListener((port) => {
+    window.chrome.runtime.onConnect.addListener((port) => {
       port.onMessage.addListener(this.onConnectChrome.bind(this))
     })
 
-    chrome.runtime.sendMessage(
-      {
-        type: 'isWatchFlash',
-      },
-      (response) => (this.nicoAPI.isFlash = response)
-    )
+    const pageData = document.querySelector('.watch-data')
+    const pageWatchInfo = document.querySelector('.watch-api')
 
-    const videoInfo = document.querySelector('.watch-api')
-    const watchInfo = document.querySelector('.watch-data')
+    if (!pageData || !pageWatchInfo) return
 
-    if (!videoInfo || !watchInfo) return false
+    this.pageData = JSON.parse(pageData.innerHTML)
+    this.pageWatchInfo = JSON.parse(pageWatchInfo.innerHTML)
 
-    this.webAPI.videoInfo = JSON.parse(videoInfo.innerHTML)
-    this.webAPI.watchInfo = JSON.parse(watchInfo.innerHTML)
-
-    if (this.webAPI.watchInfo.version.startsWith('2.')) {
+    if (this.pageData && this.pageData.version.startsWith('2.')) {
       const player = document.getElementById('player')
 
-      player.addEventListener(
-        'onSettingChange',
-        this.onSettingChange.bind(this)
+      if (!player) return
+
+      player.addEventListener('onSettingChange', () =>
+        this.storage.update('player_setting_v2')
       )
-      player.addEventListener('onVideoChange', this.onVideoChange.bind(this))
+
+      // flow-disable-line
+      player.addEventListener('onVideoChange', ({ detail }: CustomEvent) => {
+        if (!detail) return
+
+        this.pageWatchInfo = detail
+      })
 
       window.addEventListener('beforeunload', this.onBeforeUnload.bind(this))
     }
@@ -72,161 +70,185 @@ class Watch {
       case 'saveQueueToMyList':
         this.saveQueueToMyList(port, msg.payload)
         break
+
+      case 'closeStoryboardSession':
+        if (this.storyboardSession) {
+          this.storyboardSession.deleteSession()
+        }
+        break
     }
   }
 
   onBeforeUnload() {
-    if (_.get(this, 'storage.player_setting_v2.use_resume')) {
+    if (this.storage?.player_setting_v2.use_resume) {
       const video = document.getElementById('html5-video')
+
+      if (!(video instanceof HTMLVideoElement)) return
+
       const isEnd = Math.floor(video.duration) <= Math.floor(video.currentTime)
-      const isPremium = this.nicoAPI.flvInfo.is_premium === 1
+      const isPremium = this.watchInfo?.viewer.isPremium
       const isShort = video.currentTime < 60
 
       if (video && isPremium && !isEnd && !isShort) {
+        if (!this.getWatchId || !this.getCSRFToken) return
+
         API.recoadPlaybackPosition(
-          this.getWatchId,
-          video.currentTime,
-          this.getCSRFToken
+          {
+            watchId: this.getWatchId,
+            playbackPosition: video.currentTime,
+            CSRFToken: this.getCSRFToken,
+          },
+          true
         )
       }
     }
   }
 
-  async fetchWatchEmbeddedAPI(isEconomy) {
-    const watchDocument = await API.fetchWatchHTML({
-      watchId: this.getWatchId,
-      isEconomy: isEconomy,
-    })
+  async fetchWatchEmbeddedAPI(isEconomy: boolean = false) {
+    if (!this.getWatchId) {
+      return Promise.reject(new Error('No watchId'))
+    }
 
-    if (!this.nicoAPI.isFlash) {
-      const embeddedAPI = watchDocument.getElementById('js-initial-watch-data')
+    const watchDocument = await API.fetchWatchHTML(
+      {
+        watchId: this.getWatchId,
+        isEconomy: isEconomy,
+      },
+      true
+    ).catch((err) => Promise.reject(err))
 
-      this.nicoAPI.watchInfo = JSON.parse(embeddedAPI.dataset.apiData)
-      this.nicoAPI.watchEnv = JSON.parse(embeddedAPI.dataset.environment)
-    } else {
-      const embeddedAPI = watchDocument.getElementById('watchAPIDataContainer')
+    const embeddedAPI = watchDocument.getElementById('js-initial-watch-data')
 
-      this.nicoAPI.watchInfo = JSON.parse(embeddedAPI.innerText)
+    if (!embeddedAPI) {
+      return Promise.reject(new Error('no embeddedAPI'))
+    }
+
+    const watchInfo = JSON.parse(embeddedAPI.dataset.apiData)
+    const watchEnv = JSON.parse(embeddedAPI.dataset.environment)
+
+    return {
+      watchInfo,
+      watchEnv,
     }
   }
 
   async fetchWatchInfo(port) {
-    this.nicoAPI.flvInfo = await API.fetchFlvInfo({
-      v: this.getWatchId,
-      eco: this.isForceEconomy,
+    const {
+      watchInfo = null,
+      watchEnv = null,
+    } = await this.fetchWatchEmbeddedAPI().catch((err) => {
+      port.postMessage({
+        type: 'watch-info',
+        error: true,
+        message: err.message,
+      })
+
+      return {}
     })
 
-    const data = {
-      flvInfo: {
-        type: 'flvInfo',
-        payload: this.nicoAPI.flvInfo,
+    this.watchInfo = watchInfo
+    this.watchEnv = watchEnv
+
+    const data: any = {
+      watchInfo: {
+        type: 'watch-info',
+        payload: watchInfo,
       },
-      dmcInfo: {
-        type: 'dmcInfo',
-        payload: null,
-      },
-      resumeInfo: {
-        type: 'resumeInfo',
+      dmcSession: {
+        type: 'dmc-session',
         payload: null,
       },
       storyboardInfo: {
-        type: 'storyboardInfo',
+        type: 'storyboard-info',
         payload: null,
       },
     }
 
-    if (_.get(this, 'nicoAPI.flvInfo.closed')) {
-      Object.values(data).forEach((item) => {
-        port.postMessage(item)
-      })
+    port.postMessage(data.watchInfo)
+
+    if (this.session) {
+      await this.session.deleteSession()
+    }
+
+    // Session
+    if (this.getDmcInfo) {
+      this.session = new DMCGateway(this.getDmcInfo.session_api)
+
+      const session = await this.session.startSession()
+
+      data.dmcSession.payload = session
     } else {
-      await this.fetchWatchEmbeddedAPI()
+      this.session = null
+    }
 
-      port.postMessage(data.flvInfo)
+    port.postMessage(data.dmcSession)
 
-      if (this.dmcGateway) {
-        await this.dmcGateway.deleteSession()
-      }
+    // Storyboard Session
+    if (this.getDmcInfo?.storyboard_session_api) {
+      const storyboardSession = new DMCGateway(
+        this.getDmcInfo?.storyboard_session_api
+      )
 
-      // Dmc
-      if (this.getDmcInfo) {
-        this.dmcGateway = new DMCGateway(this.getDmcInfo.session_api)
-        const session = await this.dmcGateway.startSession()
+      await storyboardSession.startSession()
 
-        data.dmcInfo.payload = {
-          dmcInfo: this.getDmcInfo.session_api,
-          dmcSession: session,
-        }
-      } else {
-        this.dmcGateway = null
-      }
+      data.storyboardInfo.payload = storyboardSession.storyboard
 
-      port.postMessage(data.dmcInfo)
+      this.storyboardSession = storyboardSession
 
-      // Resume
-      if (
-        !this.nicoAPI.isFlash &&
-        this.nicoAPI.watchInfo.context.initialPlaybackType === 'resume'
-      ) {
-        data.resumeInfo.payload = {
-          playbackPosition: this.nicoAPI.watchInfo.context
-            .initialPlaybackPosition,
-        }
-      }
+      port.postMessage(data.storyboardInfo)
+    } else {
+      this.storyboardSession = null
+    }
 
-      port.postMessage(data.resumeInfo)
+    // Storyboard
+    if (
+      !data.storyboardInfo.payload &&
+      watchInfo?.viewer.isPremium &&
+      this.getVideoSource
+    ) {
+      const storyboard = await API.fetchStoryboard(this.getVideoSource)
 
-      // Storyboard
-      if (this.nicoAPI.flvInfo.is_premium) {
-        const storyboard = await API.fetchStoryboard(this.getVideoSource).catch(
-          (err) => {}
-        )
-
-        if (storyboard) {
-          data.storyboardInfo.payload = storyboard
-        }
+      if (storyboard) {
+        data.storyboardInfo.payload = storyboard
       }
 
       port.postMessage(data.storyboardInfo)
     }
   }
 
-  onSettingChange() {
-    this.storage.update('player_setting_v2')
-  }
-
-  onVideoChange(e) {
-    const watchInfo = e.detail
-
-    if (!watchInfo) return
-
-    _.set(this, 'webAPI.videoInfo', e.detail)
-  }
-
   async postChat(port, req) {
+    const { watchInfo } = this
+
+    if (!watchInfo) {
+      return Promise.reject(new Error('No watchInfo'))
+    }
+
     const lastPostChat = this.storage.comment_history
       ? this.storage.comment_history[this.storage.comment_history.length - 1]
       : null
 
+    const mainThread = watchInfo.commentComposite.threads.find(
+      (i) => i.isDefaultPostTarget
+    )
+
+    if (!mainThread) {
+      return Promise.reject(new Error('No mainThread'))
+    }
+
     let request = {
-      threadId: this.nicoAPI.flvInfo.thread_id,
-      serverUrl: this.nicoAPI.flvInfo.ms,
+      threadId: mainThread.id,
+      serverUrl: watchInfo.thread.serverUrl,
       command: new Set(req.command.split(' ')),
       comment: req.comment,
       vpos: req.vpos,
       isAnonymity: req.isAnonymity,
-      isPremium: this.nicoAPI.flvInfo.is_premium,
-      isNeedsKey: Boolean(this.nicoAPI.flvInfo.needs_key),
+      isPremium: watchInfo.viewer.isPremium,
+      isNeedsKey: mainThread.isThreadkeyRequired,
       isAllowContinuousPosts: this.storage.player_setting_v2
         .allow_continuous_posts,
-      userId: this.nicoAPI.flvInfo.user_id,
+      userId: watchInfo.viewer.id,
       lastPostChat: lastPostChat,
-    }
-
-    if (!this.nicoAPI.isFlash) {
-      request = Object.assign({}, request, {
-        userKey: this.nicoAPI.watchInfo.context.userkey,
-      })
+      userKey: watchInfo.context.userkey,
     }
 
     const response = await new PostChat(request)
@@ -236,7 +258,7 @@ class Watch {
       no: response.chat.no,
       vpos: response.chat.vpos,
       mail: response.chat.mail,
-      user_id: this.nicoAPI.flvInfo.user_id,
+      user_id: watchInfo.viewer.id,
       body: response.chat.content,
       date: response.chat.date,
     })
@@ -248,34 +270,46 @@ class Watch {
   }
 
   async fetchNicoHistory(port) {
+    if (!this.getWatchId || !this.getPlaylistToken) {
+      return Promise.reject(new Error('No authData'))
+    }
+
     await API.fetchWatchAPI({
       watchId: this.getWatchId,
       playlistToken: this.getPlaylistToken,
+      isEconomy: false,
     })
 
     port.postMessage({
-      type: 'fetchNicoHistory',
+      type: 'fetch-nicoHistory',
     })
   }
 
   async changeQuality(port, request) {
     let result = {}
 
+    if (!this.getWatchId || !this.getPlaylistToken) {
+      return Promise.reject(new Error('No authData'))
+    }
+
     switch (request.type) {
       case 'smile':
       case 'smile-economy': {
         const isEconomy = request.type === 'smile-economy'
 
-        if (this.dmcGateway !== null) {
-          await this.dmcGateway.deleteSession()
-          this.dmcGateway = null
+        if (this.session !== null) {
+          await this.session.deleteSession()
+          this.session = null
         }
 
-        this.nicoAPI.watchInfo = await API.fetchWatchAPI({
-          watchId: this.getWatchId,
-          playlistToken: this.getPlaylistToken,
-          isEconomy: isEconomy,
-        })
+        this.watchInfo = await API.fetchWatchAPI(
+          {
+            watchId: this.getWatchId,
+            playlistToken: this.getPlaylistToken,
+            isEconomy: isEconomy,
+          },
+          true
+        )
 
         result = Object.assign({}, result, {
           type: 'smile',
@@ -290,37 +324,53 @@ class Watch {
       default: {
         let session
 
-        if (this.dmcGateway) {
-          await this.dmcGateway.deleteSession()
+        if (this.session) {
+          await this.session.deleteSession()
         }
 
-        this.nicoAPI.watchInfo = await API.fetchWatchAPI({
-          watchId: this.getWatchId,
-          playlistToken: this.getPlaylistToken,
-        })
-
-        this.dmcGateway = new DMCGateway(this.getDmcInfo.session_api)
-        session = await this.dmcGateway.startSession(request.payload)
-
-        result = Object.assign({}, result, {
-          type: 'dmc',
-          payload: {
-            dmcSession: session,
+        this.watchInfo = await API.fetchWatchAPI(
+          {
+            watchId: this.getWatchId,
+            playlistToken: this.getPlaylistToken,
+            isEconomy: false,
           },
-        })
+          true
+        )
+
+        if (has(this.getDmcInfo, 'session_api')) {
+          this.session = new DMCGateway(this.getDmcInfo.session_api)
+          session = await this.session.startSession(request.payload)
+
+          result = Object.assign({}, result, {
+            type: 'dmc',
+            payload: {
+              dmcSession: session,
+            },
+          })
+        }
       }
     }
 
     port.postMessage({
-      type: 'changeQuality',
+      type: 'change-quality',
       payload: result,
     })
   }
 
-  async saveQueueToMyList(port, request) {
+  async saveQueueToMyList(
+    port,
+    request: {
+      group: {
+        name: string,
+        description: string,
+        isPublic: boolean,
+      },
+      items: any,
+    }
+  ) {
     const { group, items } = request
 
-    const userSession = await new Promise((resolve) => {
+    const userSession: string = await new Promise((resolve) => {
       chrome.runtime.sendMessage(
         {
           type: 'getUserSession',
@@ -329,7 +379,9 @@ class Watch {
       )
     })
 
-    if (!userSession) return Promise.reject()
+    if (!userSession) {
+      return Promise.reject(new Error('No userSession'))
+    }
 
     const myListGroupResponse = await API.createMyListGroup({
       userSession: userSession,
@@ -338,15 +390,12 @@ class Watch {
       isPublic: group.isPublic ? 1 : 0,
     })
       .then((res) => res.nicovideo_mylistgroup_response)
-      .catch((err) => {
-        console.error(err)
-      })
+      .catch((err) => Promise.reject(err))
 
-    if (myListGroupResponse['@status'] !== 'ok') {
+    if (myListGroupResponse?.['@status'] !== 'ok') {
       return Promise.reject()
     }
 
-    const player = document.getElementById('player')
     const itemIterator = items.entries()
 
     // マイリストの登録順の最小が1秒毎なので1秒毎追加
@@ -368,11 +417,11 @@ class Watch {
           groupId: myListGroupResponse.id,
         })
           .then((res) => res.nicovideo_mylist_response)
-          .catch((err) => {
+          .catch(() => {
             itemStatus = false
           })
 
-        if (myListResponse['@status'] !== 'ok') {
+        if (myListResponse?.['@status'] !== 'ok') {
           itemStatus = false
         }
 
@@ -397,52 +446,42 @@ class Watch {
   }
 
   get isForceEconomy() {
-    return this.webAPI.videoInfo.video.movie_type === 'flv' ? 1 : 0
+    return this.watchInfo?.video.movieType === 'flv' ? 1 : 0
   }
 
   get getWatchId() {
-    return this.webAPI.videoInfo.video.channel
-      ? this.webAPI.videoInfo.video.channel_thread
-      : this.webAPI.videoInfo.video.id
+    return this.pageWatchInfo?.video.channel
+      ? this.pageWatchInfo?.video.channel_thread
+      : this.pageWatchInfo?.video.id
   }
 
   get getVideoSource() {
-    if (_.get(this, 'nicoAPI.watchInfo.video.smileInfo.url')) {
-      return this.nicoAPI.watchInfo.video.smileInfo.url
-    } else if (_.get(this, 'nicoAPI.watchInfo.flvInfo.url')) {
-      return this.nicoAPI.watchInfo.flvInfo.url
+    if (this.watchInfo?.video.smileInfo?.url) {
+      return this.watchInfo?.video.smileInfo.url
     } else {
       return null
     }
   }
 
   get getDmcInfo() {
-    if (_.get(this, 'nicoAPI.watchInfo.video.dmcInfo')) {
-      return this.nicoAPI.watchInfo.video.dmcInfo
-    } else if (_.get(this, 'nicoAPI.watchInfo.flashvars.dmcInfo')) {
-      return JSON.parse(
-        decodeURIComponent(this.nicoAPI.watchInfo.flashvars.dmcInfo)
-      )
+    if (this.watchInfo?.video.dmcInfo) {
+      return this.watchInfo?.video.dmcInfo
     } else {
       return null
     }
   }
 
   get getPlaylistToken() {
-    if (_.get(this, 'nicoAPI.watchEnv.playlistToken')) {
-      return this.nicoAPI.watchEnv.playlistToken
-    } else if (_.get(this, 'nicoAPI.watchInfo.playlistToken')) {
-      return this.nicoAPI.watchInfo.playlistToken
+    if (this.watchEnv?.playlistToken) {
+      return this.watchEnv?.playlistToken
     } else {
       return null
     }
   }
 
   get getCSRFToken() {
-    if (_.get(this, 'nicoAPI.watchInfo.context.csrfToken')) {
-      return this.nicoAPI.watchInfo.context.csrfToken
-    } else if (_.get(this, 'nicoAPI.watchInfo.flashvars.csrfToken')) {
-      return this.nicoAPI.watchInfo.flashvars.csrfToken
+    if (this.watchInfo?.context.csrfToken) {
+      return this.watchInfo?.context.csrfToken
     } else {
       return null
     }

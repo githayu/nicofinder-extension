@@ -4,7 +4,7 @@ class QueueManager {
     window.addEventListener('message', this.onMessageWindow.bind(this))
   }
 
-  async onMessageChrome(request, sender, sendResponse) {
+  async onMessageChrome(request) {
     if (!this.embedAPI) {
       this.embedAPI = await this.pushEmbedAPI()
     }
@@ -54,7 +54,7 @@ class QueueManager {
 
   pushEmbedAPI() {
     const iframe = document.createElement('iframe')
-    const src = new URL('http://www.nicofinder.net/api/')
+    const src = new URL('http://www.nicofinder.net/api')
 
     if (process.env.NODE_ENV === 'development') {
       src.hostname = src.hostname.replace('www', 'dev')
