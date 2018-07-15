@@ -255,20 +255,22 @@ class Background {
       }
 
       // 移動後のURLを確認
-      const detailURL = new DetailURL(details.url)
-      const contentDir = detailURL.getContentDir()
-      const contentId = detailURL.getContentId()
+      const toURL = new DetailURL(details.url)
+      const contentDir = toURL.getContentDir()
+      const contentId = toURL.getContentId()
 
-      if (detailURL.isNiconico && contentDir && contentId) {
-        if (detailURL.hasDir(...this.store.redirectList)) {
-          let url = new URL(baseURL.nicofinder.top)
+      if (toURL.isNiconico && contentDir && contentId) {
+        if (toURL.hasDir(...this.store.redirectList)) {
+          let url = new URL(
+            PRODUCTION ? baseURL.nicofinder.top : baseURL.nicofinder.dev
+          )
 
           url.pathname = `${contentDir}/${contentId}`
 
           redirectRequest = Object.assign({}, redirectRequest, {
             isRedirect: true,
             redirectUrl: url.href,
-            detailURL: detailURL,
+            toURL: toURL,
           })
         }
       }
@@ -285,11 +287,10 @@ class Background {
       )
 
       if (referer !== undefined && has(redirectRequest, 'redirectUrl')) {
-        let detailURL = new DetailURL(referer.value)
+        let refererURL = new DetailURL(referer.value)
         let redirectCheck = [
-          detailURL.url.hostname !== redirectRequest.detailURL.url.hostname,
-          detailURL.getContentDir() ===
-            redirectRequest.detailURL.getContentDir(),
+          refererURL.url.hostname !== redirectRequest.toURL.url.hostname,
+          refererURL.getContentDir() === redirectRequest.toURL.getContentDir(),
         ]
 
         if (redirectCheck.every((i) => i)) {
@@ -303,7 +304,7 @@ class Background {
     if (this.store.redirect) {
       let redirectRequest = this.redirectMap.get(details.requestId)
 
-      if (has(redirectRequest, 'isRedirect')) {
+      if (redirectRequest && redirectRequest.isRedirect) {
         return {
           redirectUrl: redirectRequest.redirectUrl,
         }

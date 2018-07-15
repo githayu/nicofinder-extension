@@ -14,7 +14,7 @@
   dependencies:
     "@babel/highlight" "7.0.0-beta.53"
 
-"@babel/core@^7.0.0-beta.52":
+"@babel/core@^7.0.0-beta.53":
   version "7.0.0-beta.53"
   resolved "https://registry.yarnpkg.com/@babel/core/-/core-7.0.0-beta.53.tgz#ab647cfbb27241fd22ec3ca1342d7ad4e6b54f9f"
   dependencies:
@@ -720,7 +720,7 @@
     "@babel/helper-regex" "7.0.0-beta.53"
     regexpu-core "^4.1.3"
 
-"@babel/preset-env@^7.0.0-beta.52":
+"@babel/preset-env@^7.0.0-beta.53":
   version "7.0.0-beta.53"
   resolved "https://registry.yarnpkg.com/@babel/preset-env/-/preset-env-7.0.0-beta.53.tgz#2b204bf42675e166dda5a2756c41ebbf229bb37e"
   dependencies:
@@ -765,14 +765,14 @@
     js-levenshtein "^1.1.3"
     semver "^5.3.0"
 
-"@babel/preset-flow@^7.0.0-beta.52":
+"@babel/preset-flow@^7.0.0-beta.53":
   version "7.0.0-beta.53"
   resolved "https://registry.yarnpkg.com/@babel/preset-flow/-/preset-flow-7.0.0-beta.53.tgz#6a2961dee4a12bd6f5cb61161b453df7b217441e"
   dependencies:
     "@babel/helper-plugin-utils" "7.0.0-beta.53"
     "@babel/plugin-transform-flow-strip-types" "7.0.0-beta.53"
 
-"@babel/preset-react@^7.0.0-beta.52":
+"@babel/preset-react@^7.0.0-beta.53":
   version "7.0.0-beta.53"
   resolved "https://registry.yarnpkg.com/@babel/preset-react/-/preset-react-7.0.0-beta.53.tgz#3920682830a5caef5c019780282578525897089c"
   dependencies:
@@ -782,7 +782,7 @@
     "@babel/plugin-transform-react-jsx-self" "7.0.0-beta.53"
     "@babel/plugin-transform-react-jsx-source" "7.0.0-beta.53"
 
-"@babel/preset-stage-1@^7.0.0-beta.52":
+"@babel/preset-stage-1@^7.0.0-beta.53":
   version "7.0.0-beta.53"
   resolved "https://registry.yarnpkg.com/@babel/preset-stage-1/-/preset-stage-1-7.0.0-beta.53.tgz#095022ddbcea5a172677c4e91aca20c4542b8ff5"
   dependencies:
@@ -2492,7 +2492,7 @@ eslint-config-prettier@^2.9.0:
   dependencies:
     get-stdin "^5.0.1"
 
-eslint-plugin-flowtype@^2.49.3:
+eslint-plugin-flowtype@^2.50.0:
   version "2.50.0"
   resolved "https://registry.yarnpkg.com/eslint-plugin-flowtype/-/eslint-plugin-flowtype-2.50.0.tgz#953e262fa9b5d0fa76e178604892cf60dfb916da"
   dependencies:
@@ -2543,7 +2543,7 @@ eslint-visitor-keys@^1.0.0:
   version "1.0.0"
   resolved "https://registry.yarnpkg.com/eslint-visitor-keys/-/eslint-visitor-keys-1.0.0.tgz#3f3180fb2e291017716acb4c9d6d5b5c34a6a81d"
 
-eslint@^5.0.1:
+eslint@^5.1.0:
   version "5.1.0"
   resolved "https://registry.yarnpkg.com/eslint/-/eslint-5.1.0.tgz#2ed611f1ce163c0fb99e1e0cda5af8f662dff645"
   dependencies:
@@ -4639,7 +4639,7 @@ node-pre-gyp@^0.10.0:
     semver "^5.3.0"
     tar "^4"
 
-node-sass@^4.9.1:
+node-sass@^4.9.2:
   version "4.9.2"
   resolved "https://registry.yarnpkg.com/node-sass/-/node-sass-4.9.2.tgz#5e63fe6bd0f2ae3ac9d6c14ede8620e2b8bdb437"
   dependencies:
@@ -5143,7 +5143,7 @@ postcss-load-config@^2.0.0:
     cosmiconfig "^4.0.0"
     import-cwd "^2.0.0"
 
-postcss-loader@^2.1.5:
+postcss-loader@^2.1.6:
   version "2.1.6"
   resolved "https://registry.yarnpkg.com/postcss-loader/-/postcss-loader-2.1.6.tgz#1d7dd7b17c6ba234b9bed5af13e0bea40a42d740"
   dependencies:
@@ -6754,7 +6754,7 @@ webpack-sources@^1.0.1, webpack-sources@^1.1.0:
     source-list-map "^2.0.0"
     source-map "~0.6.1"
 
-webpack@^4.15.1:
+webpack@^4.60.0:
   version "4.16.0"
   resolved "https://registry.yarnpkg.com/webpack/-/webpack-4.16.0.tgz#660dae90890e55b8ed17c6f9d17bebb01dab5b4c"
   dependencies:

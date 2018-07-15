@@ -1,6 +1,7 @@
 export const baseURL = {
   nicofinder: {
     top: 'http://www.nicofinder.net',
+    dev: 'http://dev.nicofinder.net',
   },
   nicoapi: {
     getflv: 'https://flapi.nicovideo.jp/api/getflv',

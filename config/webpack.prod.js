@@ -10,6 +10,6 @@ module.exports = merge(common, {
       PRODUCTION: JSON.stringify(true),
     }),
     new UglifyJSPlugin(),
-    // new require('webpack-bundle-analyzer').BundleAnalyzerPlugin(),
+    // new (require('webpack-bundle-analyzer')).BundleAnalyzerPlugin(),
   ],
 })
