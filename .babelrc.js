@@ -3,13 +3,6 @@ module.exports = {
     ['@babel/preset-flow'],
     ['@babel/preset-react'],
     [
-      '@babel/preset-stage-1',
-      {
-        decoratorsLegacy: true,
-        pipelineProposal: 'minimal',
-      },
-    ],
-    [
       '@babel/preset-env',
       {
         targets: {
@@ -18,5 +11,15 @@ module.exports = {
         modules: false,
       },
     ],
+  ],
+  plugins: [
+    ['@babel/plugin-proposal-class-properties'],
+    ['@babel/plugin-proposal-export-default-from'],
+    ['@babel/plugin-proposal-export-namespace-from'],
+    ['@babel/plugin-proposal-json-strings'],
+    ['@babel/plugin-proposal-nullish-coalescing-operator'],
+    ['@babel/plugin-proposal-optional-chaining'],
+    ['@babel/plugin-proposal-pipeline-operator', { proposal: 'minimal' }],
+    ['@babel/plugin-syntax-dynamic-import'],
   ],
 }

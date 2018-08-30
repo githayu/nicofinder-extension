@@ -400,3 +400,36 @@ export async function fetchThreadkey(
 
   return threadSecret
 }
+
+export async function fetchPostkey(
+  threadId: string | number,
+  blockNo: number,
+  viaBackground: boolean = false
+) {
+  // Cookieも送らないと正確なキーがもらえない
+  const response = await Utils.fetch({
+    viaBackground,
+    request: {
+      url: baseURL.nicoapi.getPostkey,
+      request: {
+        credentials: 'include',
+      },
+      qs: {
+        thread: threadId,
+        block_no: blockNo,
+        device: 1,
+        version: 1,
+        version_sub: 1,
+      },
+      responseType: 'text',
+    },
+  })
+
+  const postKey = response.split('=').pop()
+
+  if (!postKey.length) {
+    throw new Error('PostKey is empty')
+  }
+
+  return postKey
+}

@@ -1,10 +1,11 @@
 import _ from 'lodash'
-import { Utils } from '../utils.js'
+import * as API from 'js/niconico/api'
+import { baseURL } from 'js/config'
 import { ValidateChat } from './'
 
 export default class PostChat {
-  static threadKeyUrl = 'http://flapi.nicovideo.jp/api/getthreadkey'
-  static postKeyUrl = 'http://flapi.nicovideo.jp/api/getpostkey'
+  static threadKeyUrl = baseURL.nicoapi.getThreadkey
+  static postKeyUrl = baseURL.nicoapi.getPostkey
   static requestCount = 0
   static packetCount = 0
 
@@ -166,65 +167,23 @@ export default class PostChat {
   }
 
   async fetchThreadKey() {
-    const url = new URL(PostChat.threadKeyUrl)
-    const formData = new FormData()
-    formData.append('thread', this.request.threadId)
-
-    // Cookieも送らないと正確なキーがもらえない
-    const response = await fetch(url, {
-      method: 'post',
-      body: formData,
-      credentials: 'include',
-    })
-
-    if (!response.ok) {
-      return Promise.reject(new Error('HTTP Error'))
-    }
-
-    const responseText = await response.text()
-    const threadSecret = Utils.decodeURLParams(responseText)
-
-    if (!threadSecret.threadkey.length) {
-      return Promise.reject(new Error('Thread key is empty'))
-    }
+    const threadSecret = await API.fetchThreadkey(this.request.threadId, true)
 
     this.latest.threadSecret = threadSecret
 
-    return Promise.resolve(threadSecret)
+    return threadSecret
   }
 
   async fetchPostKey() {
-    const url = new URL(PostChat.postKeyUrl)
-    const params = {
-      thread: this.request.threadId,
-      block_no: this.getBlockNo,
-      device: 1,
-      version: 1,
-      version_sub: 1,
-    }
-
-    Object.entries(params).forEach(([key, value]) =>
-      url.searchParams.append(key, value)
+    const postKey = await API.fetchPostkey(
+      this.request.threadId,
+      this.getBlockNo,
+      true
     )
-
-    const response = await fetch(url, {
-      credentials: 'include',
-    })
-
-    if (!response.ok) {
-      return Promise.reject(new Error('HTTP Error'))
-    }
-
-    const responseText = await response.text()
-    const postKey = responseText.split('=').pop()
-
-    if (!postKey.length) {
-      return Promise.reject(new Error('PostKey is empty'))
-    }
 
     this.latest.postKey = postKey
 
-    return Promise.resolve(postKey)
+    return postKey
   }
 
   async fetchThread(body) {

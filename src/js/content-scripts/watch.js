@@ -3,7 +3,7 @@
 import { LocalStorage } from 'js/nicofinder'
 import { DMCGateway, PostChat } from 'js/niconico/'
 import * as API from 'js/niconico/api'
-import { has, get } from 'lodash'
+import { has } from 'lodash'
 import type { WatchEnv, WatchInfo } from 'js/types/'
 
 class Watch {
@@ -242,7 +242,7 @@ class Watch {
       comment: req.comment,
       vpos: req.vpos,
       isAnonymity: req.isAnonymity,
-      isPremium: watchInfo.viewer.isPremium,
+      isPremium: Number(watchInfo.viewer.isPremium),
       isNeedsKey: mainThread.isThreadkeyRequired,
       isAllowContinuousPosts: this.storage.player_setting_v2
         .allow_continuous_posts,
