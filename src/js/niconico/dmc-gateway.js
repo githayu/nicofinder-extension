@@ -1,5 +1,6 @@
 // @flow
 
+import { Utils } from '../utils'
 import type { SessionApi } from 'js/types'
 
 export default class DMCGateway {
@@ -82,25 +83,26 @@ export default class DMCGateway {
   }
 
   async fetchSession(url: URL, request: RequestOptions = {}) {
-    const defaultRequest = {
-      headers: new Headers({
-        'Content-Type': 'application/json',
-      }),
-    }
+    const response = await Utils.fetch({
+      request: {
+        url: url.href,
+        request: {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          ...request,
+        },
+        responseType: 'json',
+      },
+      viaBackground: true,
+    })
 
-    const response = await fetch(
-      url,
-      Object.assign({}, defaultRequest, request)
-    )
-
-    if (!response.ok) {
+    if (!response) {
       clearInterval(this.continuousId)
       return Promise.reject(new Error('Dmc Session'))
     }
 
-    const result = await response.json()
-
-    return result
+    return response
   }
 
   createSessionRequest(request: RequestOptions = {}) {

@@ -80,6 +80,14 @@ class Watch {
   }
 
   onBeforeUnload() {
+    if (this.session) {
+      this.session.deleteSession()
+    }
+
+    if (this.storyboardSession) {
+      this.storyboardSession.deleteSession()
+    }
+
     if (this.storage?.player_setting_v2.use_resume) {
       const video = document.getElementById('html5-video')
 
