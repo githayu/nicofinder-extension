@@ -1,8 +1,20 @@
 module.exports = {
-  parser: 'babel-eslint',
+  parser: '@typescript-eslint/parser',
+  extends: [
+    'eslint:recommended',
+    'plugin:react/recommended',
+    'plugin:@typescript-eslint/recommended',
+    'plugin:prettier/recommended',
+  ],
+  plugins: ['@typescript-eslint', 'prettier', 'react', 'react-hooks'],
+  parserOptions: {
+    ecmaFeatures: {
+      jsx: true,
+    },
+    sourceType: 'module',
+  },
   env: {
     browser: true,
-    commonjs: true,
     es6: true,
     webextensions: true,
     node: true,
@@ -10,38 +22,40 @@ module.exports = {
   globals: {
     PRODUCTION: true,
   },
-  extends: [
-    'eslint:recommended',
-    'plugin:flowtype/recommended',
-    'plugin:react/recommended',
-    'plugin:prettier/recommended',
-    'prettier/flowtype',
-    'prettier/react',
-    'prettier/standard',
-  ],
-  parserOptions: {
-    ecmaFeatures: {
-      experimentalObjectRestSpread: true,
-      jsx: true,
+  settings: {
+    react: {
+      version: 'detect',
     },
-    sourceType: 'module',
   },
-  plugins: ['flowtype', 'react', 'prettier'],
   rules: {
-    'linebreak-style': ['error', 'unix'],
-    quotes: ['error', 'single'],
-    semi: ['error', 'never'],
-    'no-unused-vars': 'warn',
-    'no-console': 'warn',
+    '@typescript-eslint/no-parameter-properties': 'off',
+    '@typescript-eslint/no-namespace': 'off',
+    '@typescript-eslint/no-use-before-define': 'off',
+    '@typescript-eslint/explicit-member-accessibility': 'off',
+    '@typescript-eslint/camelcase': 'off',
+    '@typescript-eslint/no-empty-interface': 'off',
+    '@typescript-eslint/no-non-null-assertion': 'off',
+    '@typescript-eslint/no-unused-vars': 'off',
+    '@typescript-eslint/indent': 'off',
+    '@typescript-eslint/member-delimiter-style': 'off',
+    '@typescript-eslint/explicit-function-return-type': 'off',
+    '@typescript-eslint/no-explicit-any': 'off',
+    '@typescript-eslint/no-var-requires': 'off',
+    '@typescript-eslint/array-type': 'off',
+    'react/display-name': 'off',
+    'react/prop-types': 'off',
+    'no-sparse-arrays': 'off',
+    'no-console': 'off',
+    'no-debugger': 'off',
+    'no-unused-vars': 'off',
     'prettier/prettier': [
       'error',
       {
-        semi: false,
         singleQuote: true,
+        semi: false,
         trailingComma: 'es5',
         arrowParens: 'always',
       },
     ],
-    'flowtype/no-dupe-keys': 2,
   },
 }

@@ -1,7 +1,7 @@
 const webpack = require('webpack')
 const merge = require('webpack-merge')
 const common = require('./webpack.common')
-const UglifyJSPlugin = require('uglifyjs-webpack-plugin')
+const CopyWebpackPlugin = require('copy-webpack-plugin')
 
 module.exports = merge(common, {
   mode: 'production',
@@ -9,7 +9,14 @@ module.exports = merge(common, {
     new webpack.DefinePlugin({
       PRODUCTION: JSON.stringify(true),
     }),
-    new UglifyJSPlugin(),
+
+    new CopyWebpackPlugin([
+      {
+        from: 'src/manifest.json',
+        to: 'manifest.json',
+      },
+    ]),
+
     // new (require('webpack-bundle-analyzer')).BundleAnalyzerPlugin(),
   ],
 })
