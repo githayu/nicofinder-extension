@@ -1,41 +1,44 @@
 const path = require('path')
-const ExtractTextPlugin = require('extract-text-webpack-plugin')
+const webpack = require('webpack')
 const HtmlWebpackPlugin = require('html-webpack-plugin')
+const CopyWebpackPlugin = require('copy-webpack-plugin')
+const CleanWebpackPlugin = require('clean-webpack-plugin').default
 
 const Entries = {
-  vendor: {
-    name: 'vendor',
-    path: [
-      'react',
-      'react-dom',
-      'lodash',
-      'prop-types',
-      './src/js/utils',
-      './src/js/config',
-    ],
-  },
   background: {
     name: 'background',
-    path: './src/js/background',
+    path: './src/background/background',
   },
   popup: {
     name: 'popup',
-    path: './src/js/Popup/Popup',
+    path: './src/components/Popup',
   },
   options: {
     name: 'options',
-    path: './src/js/Options/Options',
+    path: './src/components/Options',
   },
   contentWatch: {
     name: 'content-scripts/watch',
-    path: './src/js/content-scripts/watch',
-  },
-  contentQueueManager: {
-    name: 'content-scripts/queue-manager',
-    path: './src/js/content-scripts/queue-manager',
+    path: './src/content-scripts/watch',
   },
 }
 
+const HtmlWebpackPluginEntries = [
+  {
+    filename: 'options.html',
+    template: 'src/template.html',
+    chunks: ['vendor', Entries.options.name],
+  },
+  {
+    filename: 'popup.html',
+    template: 'src/template.html',
+    chunks: ['vendor', Entries.popup.name],
+  },
+]
+
+/**
+ * @type {HtmlWebpackPlugin.Options}
+ */
 const HtmlWebpackPluginConfig = {
   title: 'Nicofinder',
   minify: {
@@ -50,19 +53,9 @@ const HtmlWebpackPluginConfig = {
   },
 }
 
-const HtmlWebpackPluginEntries = [
-  {
-    filename: 'html/options.html',
-    template: 'src/html/template.html',
-    chunks: [Entries.vendor.name, Entries.options.name],
-  },
-  {
-    filename: 'html/popup.html',
-    template: 'src/html/template.html',
-    chunks: [Entries.vendor.name, Entries.popup.name],
-  },
-]
-
+/**
+ * @type {webpack.Configuration}
+ */
 module.exports = {
   entry: Object.values(Entries).reduce((previous, current) => {
     previous[current.name] = current.path
@@ -71,72 +64,63 @@ module.exports = {
 
   output: {
     publicPath: '/',
-    filename: 'js/[name].js',
+    filename: '[name].js',
     path: path.resolve(__dirname, '../dist/'),
   },
 
   resolve: {
-    alias: {
-      js: path.resolve(__dirname, '../src/js/'),
-    },
-
-    extensions: ['.js', '.jsx', '.json'],
+    extensions: ['.js', '.json', '.ts', '.tsx'],
   },
 
   optimization: {
     splitChunks: {
-      name: Entries.vendor.name,
-      chunks: 'initial',
+      name: 'vendor',
+      chunks: 'all',
     },
   },
 
   plugins: [
-    new ExtractTextPlugin('css/[name].css'),
-
     ...HtmlWebpackPluginEntries.map(
       (entry) =>
-        new HtmlWebpackPlugin(Object.assign({}, HtmlWebpackPluginConfig, entry))
+        new HtmlWebpackPlugin({
+          ...HtmlWebpackPluginConfig,
+          ...entry,
+        })
     ),
+
+    new CopyWebpackPlugin(
+      [
+        {
+          from: 'src/img',
+          to: 'img',
+        },
+        {
+          from: 'src/styles.css',
+        },
+      ],
+      {
+        copyUnmodified: true,
+      }
+    ),
+    new CleanWebpackPlugin(),
   ],
 
   module: {
     rules: [
       {
-        test: /\.jsx?$/,
-        loader: 'babel-loader',
+        test: /\.tsx?$/,
         exclude: /node_modules/,
-      },
-      {
-        test: /\.module\.scss$/,
         use: [
-          'style-loader',
           {
-            loader: 'css-loader',
+            loader: 'ts-loader',
+          },
+          {
+            loader: 'eslint-loader',
             options: {
-              minimize: true,
-              modules: true,
-              localIdentName: '[folder]-[md5:hash:hex:10]',
+              fix: true,
             },
           },
-          'postcss-loader',
-          'sass-loader',
         ],
-      },
-      {
-        test: /^(?!.*\.module\.scss)(?=.*\.scss).*$/,
-        loader: ExtractTextPlugin.extract({
-          fallback: 'style-loader',
-          use: [
-            {
-              loader: 'css-loader',
-              options: {
-                minimize: true,
-              },
-            },
-            'postcss-loader',
-            'sass-loader',
-          ],
-        }),
       },
     ],
   },

@@ -1,6 +1,6 @@
 {
   "name": "Nicofinder",
-  "version": "2.9.5",
+  "version": "2.10.0",
   "manifest_version": 2,
   "description": "Nicofinderでの動画視聴を支援する拡張機能です。",
   "author": "Hayu",
@@ -14,7 +14,8 @@
     "webRequestBlocking",
     "*://*.nicofinder.net/*",
     "*://*.nicovideo.jp/*",
-    "*://*.dmc.nico/*"
+    "*://*.dmc.nico/*",
+    "*://*.smilevideo.jp/*"
   ],
   "browser_action": {
     "default_icon": {
@@ -22,28 +23,24 @@
       "38": "img/icon38.png"
     },
     "default_title": "Nicofinder",
-    "default_popup": "html/popup.html"
+    "default_popup": "popup.html"
   },
   "background": {
     "persistent": true,
-    "scripts": ["js/vendor.js", "js/background.js"]
+    "scripts": ["vendor.js", "background.js"]
   },
   "content_scripts": [
     {
       "matches": ["*://*.nicofinder.net/watch/*"],
-      "js": ["js/vendor.js", "js/content-scripts/watch.js"],
+      "js": ["vendor.js", "content-scripts/watch.js"],
       "run_at": "document_end"
-    },
-    {
-      "matches": ["*://*.nicofinder.net/*", "*://www.nicovideo.jp/*"],
-      "js": ["js/vendor.js", "js/content-scripts/queue-manager.js"]
     }
   ],
   "externally_connectable": {
     "matches": ["*://*.nicofinder.net/*"]
   },
   "options_ui": {
-    "page": "html/options.html",
+    "page": "options.html",
     "chrome_style": true
   },
   "icons": {
