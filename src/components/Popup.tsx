@@ -11,8 +11,11 @@ interface State {
   serviceId?: any
   contentId?: any
   contentData?: nicovideo.API.VideoInfo['nicovideo_video_response']
-  isRedirect: boolean
-  redirectList: string[]
+  storage: {
+    [x: string]: any
+    redirect: boolean
+    redirectList: string[]
+  }
 }
 
 const changeLocation = (url: string) => {
@@ -27,18 +30,20 @@ const Popup = () => {
     serviceId: undefined,
     contentId: undefined,
     contentData: undefined,
-    isRedirect: false,
-    redirectList: [],
+    storage: {
+      redirect: false,
+      redirectList: [],
+    },
   })
 
   React.useEffect(() => {
     // リダイレクト状態の取得
-    chrome.storage.local.get(['redirect', 'redirectList'], (storage) =>
+    chrome.storage.local.get(['redirect', 'redirectList'], (storage: any) => {
       setState({
         ...state,
-        ...storage,
+        storage,
       })
-    )
+    })
 
     // タブ情報の取得
     getActiveTabs().then(([tab]) => {
@@ -83,6 +88,29 @@ const Popup = () => {
         }
       }
     })
+
+    const handleChangeStorage = (changes: {
+      [key: string]: chrome.storage.StorageChange
+    }) => {
+      let newStorage: Partial<State['storage']> = {}
+
+      for (let name in changes) {
+        newStorage[name] = changes[name].newValue
+      }
+
+      const storage = Object.assign({}, state.storage, newStorage)
+
+      setState({
+        ...state,
+        storage,
+      })
+    }
+
+    chrome.storage.onChanged.addListener(handleChangeStorage)
+
+    return () => {
+      chrome.storage.onChanged.removeListener(handleChangeStorage)
+    }
   }, [])
 
   const getThumbnailUrl = React.useCallback(() => {
@@ -141,18 +169,11 @@ const Popup = () => {
         <header>
           <span>転送モード</span>
           <Switch
-            checked={state.isRedirect}
+            checked={state.storage.redirect}
             onChange={() =>
-              chrome.storage.local.set(
-                {
-                  redirect: !state.isRedirect,
-                },
-                () =>
-                  setState({
-                    ...state,
-                    isRedirect: !state.isRedirect,
-                  })
-              )
+              chrome.storage.local.set({
+                redirect: !state.storage.redirect,
+              })
             }
           />
         </header>

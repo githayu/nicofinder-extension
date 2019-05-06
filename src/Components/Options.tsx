@@ -1,7 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom'
 import { defaultStorage } from '../constants'
-import styled, { createGlobalStyle } from 'styled-components'
+import { createGlobalStyle } from 'styled-components'
 import MUI from './MUI'
 import {
   FormGroup,
@@ -10,7 +10,6 @@ import {
   FormControl,
   FormLabel,
 } from '@material-ui/core'
-import { get } from 'lodash-es'
 
 interface OptionItem {
   name: string
