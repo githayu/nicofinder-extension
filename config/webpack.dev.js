@@ -7,6 +7,7 @@ const HardSourceWebpackPlugin = require('hard-source-webpack-plugin')
 module.exports = merge(common, {
   mode: 'development',
   watch: true,
+  devtool: 'cheap-module-eval-source-map',
   plugins: [
     new webpack.DefinePlugin({
       PRODUCTION: JSON.stringify(false),
