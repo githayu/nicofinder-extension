@@ -1,14 +1,8 @@
-import FetchThreads from './FetchThreads'
-import { fetchWaybackkey, fetchUserId, fetchThreadkey } from './api'
+import { FetchThreads } from '../libs/FetchThreads'
+import { fetchWaybackkey, fetchUserId, fetchThreadkey } from '../libs/API'
 
-export default async function fetchPastThreads(
-  {
-    groupType,
-    thread,
-  }: {
-    groupType: string
-    thread: any
-  },
+export async function fetchPastThreads(
+  { groupType, thread }: { groupType: string; thread: any },
   sendResponse: any
 ) {
   const mainThreadId = thread[`${groupType}ThreadId`]

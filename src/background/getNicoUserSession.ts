@@ -1,4 +1,4 @@
-export async function getNicoUserSession(): Promise<string | undefined> {
+export async function getNicoUserSession(): Promise<string | void> {
   return new Promise((resolve) =>
     chrome.cookies.getAll(
       {
