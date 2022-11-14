@@ -19,15 +19,15 @@
     "lodash-es": "^4.17.21"
   },
   "devDependencies": {
-    "@types/chrome": "^0.0.154",
+    "@types/chrome": "^0.0.200",
     "@types/clean-webpack-plugin": "^0.1.3",
     "@types/lodash-es": "^4.17.4",
-    "@typescript-eslint/eslint-plugin": "^4.29.0",
-    "@typescript-eslint/eslint-plugin-tslint": "^4.29.0",
-    "@typescript-eslint/parser": "^4.29.0",
+    "@typescript-eslint/eslint-plugin": "^5.42.1",
+    "@typescript-eslint/eslint-plugin-tslint": "^5.42.1",
+    "@typescript-eslint/parser": "^5.42.1",
     "clean-webpack-plugin": "^4.0.0-alpha.0",
-    "copy-webpack-plugin": "^9.0.1",
-    "eslint": "^7.32.0",
+    "copy-webpack-plugin": "^11.0.0",
+    "eslint": "^8.27.0",
     "eslint-config-prettier": "^8.3.0",
     "eslint-loader": "^4.0.2",
     "prettier": "^2.3.2",
@@ -37,5 +37,9 @@
     "webpack-bundle-analyzer": "^4.4.2",
     "webpack-cli": "^4.7.2",
     "webpack-merge": "^5.8.0"
+  },
+  "prettier": {
+    "singleQuote": true,
+    "semi": false
   }
 }

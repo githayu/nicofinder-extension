@@ -1,4 +1,3 @@
 {
-  "editor.formatOnSave": true,
-  "eslint.enable": true
+  "terminal.integrated.defaultProfile.windows": "Ubuntu (WSL)"
 }

@@ -39,7 +39,7 @@ export async function fetchUserId() {
  */
 export async function fetchThreadkey(
   threadId: string | number,
-  viaBackground: boolean = false
+  viaBackground = false
 ) {
   const formData = new FormData()
 
@@ -59,4 +59,18 @@ export async function fetchThreadkey(
   }
 
   return threadSecret as { threadkey: string; force_184: number }
+}
+
+/**
+ * `getthumbinfo` 動画情報の取得
+ */
+export async function fetchThumbInfo(id: string) {
+  const xmlString = await fetch(
+    `https://ext.nicovideo.jp/api/getthumbinfo/${id}`
+  ).then((res) => res.text())
+
+  const parser = new DOMParser()
+  const dom = parser.parseFromString(xmlString, 'application/xml')
+
+  return dom
 }

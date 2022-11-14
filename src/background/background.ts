@@ -1,17 +1,34 @@
 import { fetchPastThreads } from './fetchPastThreads'
 import { getNicoUserSession } from './getNicoUserSession'
 import { DetailURL } from '../utils/DetailURL'
+import { NicoVideoAPI } from '../libs'
 
 // 外部メッセージ
 chrome.runtime.onMessageExternal.addListener(
   (message, sender, sendResponse) => {
     switch (message.type) {
       case 'isInstalled': {
-        getNicoUserSession().then((us) =>
+        getNicoUserSession().then((us) => {
           sendResponse({
             isLoggedIn: us !== null,
           })
-        )
+        })
+
+        break
+      }
+
+      case 'fetchWatchData': {
+        getNicoUserSession().then(async (us) => {
+          const api = new NicoVideoAPI(message.payload)
+
+          if (us) {
+            const result = await api.run(us)
+
+            sendResponse(result)
+          } else {
+            sendResponse(null)
+          }
+        })
         break
       }
 

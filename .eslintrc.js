@@ -1,12 +1,11 @@
+/** @type {import('eslint/lib/shared/types').ConfigData} */
 module.exports = {
   parser: '@typescript-eslint/parser',
   extends: [
     'eslint:recommended',
-    'plugin:react/recommended',
     'plugin:@typescript-eslint/recommended',
-    'plugin:prettier/recommended',
+    'prettier',
   ],
-  plugins: ['@typescript-eslint', 'prettier', 'react', 'react-hooks'],
   parserOptions: {
     ecmaFeatures: {
       jsx: true,
@@ -42,20 +41,10 @@ module.exports = {
     '@typescript-eslint/no-explicit-any': 'off',
     '@typescript-eslint/no-var-requires': 'off',
     '@typescript-eslint/array-type': 'off',
-    'react/display-name': 'off',
-    'react/prop-types': 'off',
+    '@typescript-eslint/no-empty-function': 'off',
     'no-sparse-arrays': 'off',
     'no-console': 'off',
     'no-debugger': 'off',
     'no-unused-vars': 'off',
-    'prettier/prettier': [
-      'error',
-      {
-        singleQuote: true,
-        semi: false,
-        trailingComma: 'es5',
-        arrowParens: 'always',
-      },
-    ],
   },
 }

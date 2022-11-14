@@ -1,5 +1,5 @@
 import { FetchThreads } from '../libs/FetchThreads'
-import { fetchWaybackkey, fetchUserId, fetchThreadkey } from '../libs/API'
+import { fetchWaybackkey, fetchUserId, fetchThreadkey } from '../libs/apis'
 
 export async function fetchPastThreads(
   { groupType, thread }: { groupType: string; thread: any },
